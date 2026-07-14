@@ -1,0 +1,4 @@
+interface:
+  display_name: "Image Prompt Generator"
+  short_description: "将科技文章转化为专业图片提示词，审核后可用 ThinkAI 生图"
+  default_prompt: "使用 $image-prompt-generator 为这篇文章设计封面或正文配图提示词，先让我审核，通过后再用 ThinkAI 生图。"
