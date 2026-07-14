@@ -142,10 +142,12 @@ description: Use when converting technology news, AI industry analysis, product 
 首次使用时运行：
 
 ```bash
+python3 -m pip install -r requirements.txt
 python3 scripts/configure_api_key.py
 ```
 
-脚本默认使用隐藏输入。自动化环境可把 Key 通过标准输入传给
+第一条命令安装 ThinkAI 生图连接器使用的 `requests` 依赖；只生成 Prompt 时无需安装。
+配置脚本默认使用隐藏输入。自动化环境可把 Key 通过标准输入传给
 `python3 scripts/configure_api_key.py --api-key-stdin`，禁止把 Key 放入命令参数。
 
 配置只写入当前 Skill 根目录的 `config.json`，使用临时文件原子替换并设为 `0600`。

@@ -50,6 +50,7 @@ REQUIRED_FILES = [
     "examples/library/cases-076-100.md",
     "scripts/configure_api_key.py",
     "scripts/generate_image.py",
+    "requirements.txt",
     "config.example.json",
     ".gitignore",
 ]
@@ -524,11 +525,32 @@ def validate_category_subject_routing() -> int:
 
 def validate_thinkai_connector() -> int:
     errors = 0
+    requirements_path = ROOT / "requirements.txt"
+    readme_path = ROOT / "README.md"
     config_example_path = ROOT / "config.example.json"
     configure_path = ROOT / "scripts" / "configure_api_key.py"
     generate_path = ROOT / "scripts" / "generate_image.py"
     workflow_path = ROOT / "rules" / "generation_workflow.md"
     gitignore_path = ROOT / ".gitignore"
+
+    if not requirements_path.is_file():
+        fail("缺少 Python 依赖清单：requirements.txt")
+        errors += 1
+    else:
+        requirements = {
+            line.strip()
+            for line in requirements_path.read_text(encoding="utf-8").splitlines()
+            if line.strip() and not line.startswith("#")
+        }
+        if "requests>=2.31,<3" not in requirements:
+            fail("requirements.txt 必须声明 requests>=2.31,<3")
+            errors += 1
+
+    if readme_path.is_file():
+        readme = readme_path.read_text(encoding="utf-8")
+        if "python3 -m pip install -r requirements.txt" not in readme:
+            fail("README.md 缺少 Python 依赖安装命令")
+            errors += 1
 
     if config_example_path.is_file():
         try:
@@ -632,6 +654,9 @@ def validate_public_package() -> int:
     for path in sorted(ROOT.rglob("*")):
         relative_path = path.relative_to(ROOT)
         relative = relative_path.as_posix()
+
+        if relative_path.parts[0] == ".git":
+            continue
 
         if relative_path.parts[0] in ALLOWED_RUNTIME_DIRECTORIES:
             continue

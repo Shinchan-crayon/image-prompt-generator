@@ -39,6 +39,15 @@
 ~/.codex/skills/image-prompt-generator/
 ```
 
+安装 ThinkAI 生图所需的 Python 依赖：
+
+```bash
+cd ~/.codex/skills/image-prompt-generator
+python3 -m pip install -r requirements.txt
+```
+
+只使用 Prompt 生成功能时不需要安装该依赖；调用 ThinkAI 生图前必须完成安装。
+
 使用示例：
 
 ```text
@@ -57,6 +66,7 @@
 
 ```bash
 cd ~/.codex/skills/image-prompt-generator
+python3 -m pip install -r requirements.txt
 python3 scripts/configure_api_key.py
 ```
 
@@ -95,6 +105,7 @@ image-prompt-generator/
 ├── templates/
 ├── examples/
 ├── scripts/
+├── requirements.txt
 ├── config.example.json
 └── .gitignore
 ```

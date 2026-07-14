@@ -15,7 +15,15 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
-import requests
+try:
+    import requests
+except ModuleNotFoundError:
+    print(
+        "缺少 Python 依赖 requests。请在 Skill 根目录运行："
+        "python3 -m pip install -r requirements.txt",
+        file=sys.stderr,
+    )
+    raise SystemExit(2)
 
 
 SIZE_ALIASES = {
