@@ -8,7 +8,6 @@ import http.client
 import json
 import subprocess
 import sys
-import time
 import urllib.error
 import urllib.request
 from datetime import datetime
@@ -34,8 +33,6 @@ DEFAULT_BASE_URL = "https://www.thinkai.tv/v1"
 DEFAULT_MODEL = "gpt-image-2"
 CONNECT_TIMEOUT_SECONDS = 30
 READ_TIMEOUT_SECONDS = 900
-MAX_REQUEST_ATTEMPTS = 3
-RETRYABLE_HTTP_STATUS_CODES = {408, 409, 425, 429, 500, 502, 503, 504, 524}
 
 
 def load_config(skill_root: Path) -> dict:
@@ -122,45 +119,34 @@ def request_json(
     headers: dict,
     body: Optional[dict] = None,
 ) -> dict:
-    last_error: Optional[Exception] = None
-    payload = None
-
-    for attempt in range(1, MAX_REQUEST_ATTEMPTS + 1):
-        try:
-            response = requests.request(
-                method,
-                url,
-                json=body,
-                headers=headers,
-                timeout=(CONNECT_TIMEOUT_SECONDS, READ_TIMEOUT_SECONDS),
-            )
-            response.raise_for_status()
-            payload = response.text
-            break
-        except requests.HTTPError as exc:
-            status_code = exc.response.status_code if exc.response is not None else None
-            detail = exc.response.text if exc.response is not None else str(exc)
-            if status_code in RETRYABLE_HTTP_STATUS_CODES and attempt < MAX_REQUEST_ATTEMPTS:
-                last_error = RuntimeError(
-                    f"ThinkAI 请求失败，HTTP {status_code}：{detail}"
-                )
-                time.sleep(attempt)
-                continue
-            raise RuntimeError(
-                f"ThinkAI 请求失败，HTTP {status_code}：{detail}"
-            ) from exc
-        except (
-            requests.ConnectionError,
-            requests.Timeout,
-            requests.exceptions.ChunkedEncodingError,
-        ) as exc:
-            if attempt < MAX_REQUEST_ATTEMPTS:
-                last_error = exc
-                time.sleep(attempt)
-                continue
-            raise RuntimeError(f"ThinkAI 请求失败：{exc}") from exc
-    else:
-        raise RuntimeError(f"ThinkAI 请求失败：{last_error}")
+    try:
+        response = requests.request(
+            method,
+            url,
+            json=body,
+            headers=headers,
+            timeout=(CONNECT_TIMEOUT_SECONDS, READ_TIMEOUT_SECONDS),
+        )
+        response.raise_for_status()
+        payload = response.text
+    except requests.HTTPError as exc:
+        status_code = exc.response.status_code if exc.response is not None else None
+        detail = exc.response.text if exc.response is not None else str(exc)
+        raise RuntimeError(
+            f"ThinkAI 请求失败，HTTP {status_code}：{detail}。"
+            "付费生成请求不会自动重试。"
+        ) from exc
+    except (
+        requests.ConnectionError,
+        requests.Timeout,
+        requests.exceptions.ChunkedEncodingError,
+    ) as exc:
+        raise RuntimeError(
+            "ThinkAI 生成请求结果不确定，服务端可能已受理并计费。"
+            "为避免重复生成，本工具不会自动重试；"
+            "请先在 ThinkAI 后台确认任务记录，再决定是否重新执行。"
+            f"原始错误：{exc}"
+        ) from exc
 
     try:
         return json.loads(payload)

@@ -88,7 +88,9 @@ python3 scripts/generate_image.py \
 - `--approval-hash` 必须对应用户看到并批准的精确 Prompt。
 - ThinkAI 地址固定为 `https://www.thinkai.tv/v1`，模型固定为 `gpt-image-2`；配置被篡改
   时停止执行。
-- 生成请求使用 `requests`、明确的连接与读取超时，以及瞬时错误重试规则，最多尝试三次。
+- 付费生成 POST 只发送一次。超时、断线、响应不完整或 HTTP 错误时不会自动重试。
+- 若生成响应结果不确定，必须告知用户服务端可能已受理并计费，并停止执行。只有用户确认
+  ThinkAI 后台没有成功任务且明确要求重新生成后，才允许再次发送 POST。
 - API Key 仅从本 Skill 权限为 `0600` 的 `config.json` 读取，不写入命令参数、日志、请求
   快照或用户回复。
 - ThinkAI 返回内容必须是完整 JSON，并包含 `data[0].url`；结构不符合时停止执行。

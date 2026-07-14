@@ -124,6 +124,8 @@ description: Use when converting technology news, AI industry analysis, product 
    - 为用户批准的精确 Prompt 计算 SHA-256；调用 `scripts/generate_image.py` 时必须同时传入
      `--approved` 与匹配的 `--approval-hash`。
    - Prompt、比例、主体、风格或其他画面条件发生变化后，旧批准与旧哈希同时失效。
+   - 付费生成 POST 只发送一次。若超时、断线或结果不确定，不得自动重试；先请用户检查
+     ThinkAI 后台，只有用户确认没有成功任务并明确要求重发后才能再次执行。
    - 返回本地图片路径、实际尺寸、请求快照和响应快照。
 
 ## 输出约束

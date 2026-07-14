@@ -27,8 +27,8 @@
 - 内置 ThinkAI `gpt-image-2` 连接器，并通过显式审核门阻止未批准生图。
 - API Key 通过隐藏输入保存到本 Skill 自己的 `config.json`，权限为 `0600`。
 - 生图命令校验批准 Prompt 的 SHA-256，修改 Prompt 后必须重新审核。
-- 生图请求采用明确超时和瞬时错误重试，图片下载提供独立兜底。
-- 生成请求对瞬时连接错误和可重试 HTTP 状态最多尝试三次。
+- 付费生图 POST 只发送一次；结果不确定时不会自动重试，避免后台已受理却重复扣费。
+- 用户确认 ThinkAI 后台没有成功任务并明确要求重发后，才能再次发送生成请求。
 - 图片下载发生连接错误或数据不完整时使用系统 `curl` 兜底。
 
 ## 安装
@@ -88,9 +88,9 @@ printf '%s' "$THINKAI_API_KEY" | python3 scripts/configure_api_key.py --api-key-
 实际计费以 ThinkAI 后台为准。`config.json` 不会被提交；默认生成结果保存在
 `generated/<时间戳>/`。
 
-生成请求通过 `requests` 发送，对瞬时错误最多尝试三次；图片优先通过 Python URL 读取器
-下载，连接错误或数据不完整时使用系统 `curl` 兜底。API Key 只从当前 Skill 的本地配置
-读取，不写入请求快照或用户回复。
+生成请求通过 `requests` 单次发送，超时或断线时不会自动重试；图片优先通过 Python URL
+读取器下载，连接错误或数据不完整时使用系统 `curl` 兜底。API Key 只从当前 Skill 的
+本地配置读取，不写入请求快照或用户回复。
 
 ## 目录
 

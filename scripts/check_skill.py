@@ -601,8 +601,7 @@ def validate_thinkai_connector() -> int:
             "request.json",
             "response.json",
             "requests.request",
-            "MAX_REQUEST_ATTEMPTS",
-            "RETRYABLE_HTTP_STATUS_CODES",
+            "不会自动重试",
             "curl_download",
             "urllib.request",
             "IncompleteRead",
@@ -610,6 +609,10 @@ def validate_thinkai_connector() -> int:
         ):
             if term not in generate_script:
                 fail(f"generate_image.py 缺少 ThinkAI 执行契约：{term}")
+                errors += 1
+        for forbidden in ("MAX_REQUEST_ATTEMPTS", "RETRYABLE_HTTP_STATUS_CODES"):
+            if forbidden in generate_script:
+                fail(f"付费生成 POST 不得保留自动重试机制：{forbidden}")
                 errors += 1
         if 'add_argument("--output-dir"' in generate_script:
             fail("generate_image.py 不得向命令行开放任意输出目录")
@@ -623,7 +626,9 @@ def validate_thinkai_connector() -> int:
             "--approved",
             "--approval-hash",
             "--api-key-stdin",
-            "最多尝试三次",
+            "生成 POST 只发送一次",
+            "不会自动重试",
+            "ThinkAI 后台没有成功任务",
             "Python URL 读取器",
             "系统 `curl`",
             "实际计费以 ThinkAI 后台为准",
