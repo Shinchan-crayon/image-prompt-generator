@@ -1,4 +1,4 @@
 interface:
   display_name: "Image Prompt Generator"
-  short_description: "将科技文章转化为专业图片提示词，审核后可选渠道生图"
-  default_prompt: "使用 $image-prompt-generator 设计封面或正文配图提示词。先展示给我审核；批准后默认用 ThinkAI Image 2，也可选择 ThinkAI Nano、火山引擎、OpenAI、Google 或其他兼容渠道。"
+  short_description: "将科技文章转化为单图或整篇文章的专业视觉方案"
+  default_prompt: "使用 $image-prompt-generator 设计单张封面、正文配图，或为整篇文章规划多张图片。先展示规划与 Prompt 给我审核；整篇文章全部 Prompt 批准后再统一生图。"

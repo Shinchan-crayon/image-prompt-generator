@@ -1,0 +1,127 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:image-prompt-generator:workflow-state:v1",
+  "title": "Image Prompt Generator Article Workflow State",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "run_id",
+    "title",
+    "phase",
+    "article",
+    "settings",
+    "plan",
+    "items"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "run_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "phase": {
+      "enum": [
+        "planning",
+        "plan_review",
+        "prompt_review",
+        "ready",
+        "generating",
+        "blocked",
+        "complete"
+      ]
+    },
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "mode",
+          "status",
+          "prompt_status",
+          "generation"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"
+          },
+          "mode": {
+            "enum": [
+              "cover",
+              "content"
+            ]
+          },
+          "status": {
+            "enum": [
+              "active",
+              "removed"
+            ]
+          },
+          "prompt_status": {
+            "enum": [
+              "not_started",
+              "awaiting_review",
+              "approved",
+              "removed"
+            ]
+          },
+          "generation": {
+            "type": "object",
+            "required": [
+              "status",
+              "result",
+              "error",
+              "updated_at"
+            ],
+            "properties": {
+              "status": {
+                "enum": [
+                  "pending",
+                  "sending",
+                  "generated",
+                  "failed",
+                  "uncertain"
+                ]
+              }
+            },
+            "additionalProperties": true
+          }
+        },
+        "additionalProperties": true
+      }
+    },
+    "article": {
+      "type": "object",
+      "required": [
+        "path",
+        "sha256"
+      ]
+    },
+    "settings": {
+      "type": "object",
+      "required": [
+        "provider",
+        "model",
+        "target_model",
+        "quality"
+      ]
+    },
+    "plan": {
+      "type": "object",
+      "required": [
+        "path",
+        "hash",
+        "approved",
+        "approved_at"
+      ]
+    }
+  },
+  "additionalProperties": true
+}

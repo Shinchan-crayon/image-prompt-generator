@@ -39,9 +39,13 @@ REQUIRED_FILES = [
     "rules/quality_scoring.md",
     "rules/self_check.md",
     "rules/generation_workflow.md",
+    "rules/article_workflow.md",
+    "rules/batch_generation.md",
     "templates/cover_output.md",
     "templates/content_output.md",
     "templates/prompt_templates.md",
+    "templates/image_plan.md",
+    "templates/batch_review.md",
     "examples/cover_example.md",
     "examples/content_example.md",
     "examples/library/index.md",
@@ -55,6 +59,9 @@ REQUIRED_FILES = [
     "scripts/provider_preflight.py",
     "scripts/provider_registry.py",
     "scripts/generate_image.py",
+    "scripts/workflow_state.py",
+    "scripts/article_workflow.py",
+    "scripts/delivery_builder.py",
     "scripts/providers/__init__.py",
     "scripts/providers/base.py",
     "scripts/providers/thinkai.py",
@@ -64,6 +71,7 @@ REQUIRED_FILES = [
     "scripts/providers/google_image.py",
     "scripts/providers/custom.py",
     "data/image_providers.json",
+    "data/workflow-state.schema.json",
     "requirements.txt",
     "config.example.json",
     ".gitignore",
@@ -91,6 +99,7 @@ ALLOWED_RELEASE_DIRECTORIES = {
 
 ALLOWED_RUNTIME_DIRECTORIES = {
     "generated",
+    "runs",
 }
 
 REQUIRED_SKILL_TERMS = [
@@ -111,6 +120,10 @@ REQUIRED_SKILL_TERMS = [
     "其他",
     "--approved",
     "--approval-hash",
+    "文章级工作流",
+    "全部 Prompt",
+    "断点恢复",
+    "统一交付",
 ]
 
 REQUIRED_SKILL_LINKS = [
@@ -126,11 +139,15 @@ REQUIRED_SKILL_LINKS = [
     "knowledge/composition.md",
     "rules/self_check.md",
     "rules/generation_workflow.md",
+    "rules/article_workflow.md",
+    "rules/batch_generation.md",
     "rules/cover_rules.md",
     "rules/content_rules.md",
     "templates/cover_output.md",
     "templates/content_output.md",
     "templates/prompt_templates.md",
+    "templates/image_plan.md",
+    "templates/batch_review.md",
     "examples/library/index.md",
 ]
 
@@ -451,6 +468,130 @@ def validate_mode_boundary(skill: str) -> int:
     if unexpected_headings:
         fail(f"SKILL.md 出现额外运行模式标题：{unexpected_headings}")
         errors += 1
+    if re.search(r"^#{1,6}\s+批量模式\s*$", skill, flags=re.MULTILINE):
+        fail("文章工作流不得声明为批量模式")
+        errors += 1
+
+    return errors
+
+
+def validate_article_workflow() -> int:
+    errors = 0
+    article_path = ROOT / "rules" / "article_workflow.md"
+    batch_path = ROOT / "rules" / "batch_generation.md"
+    workflow_script_path = ROOT / "scripts" / "article_workflow.py"
+    state_script_path = ROOT / "scripts" / "workflow_state.py"
+    delivery_script_path = ROOT / "scripts" / "delivery_builder.py"
+    schema_path = ROOT / "data" / "workflow-state.schema.json"
+    gitignore_path = ROOT / ".gitignore"
+
+    contracts = [
+        (
+            article_path,
+            (
+                "不是第三种视觉模式",
+                "图片规划",
+                "逐张批准",
+                "断点恢复",
+                "替换完整规划",
+                "批准状态失效",
+            ),
+            "article_workflow.md",
+        ),
+        (
+            batch_path,
+            (
+                "全量批准门禁",
+                "按规划顺序逐张执行",
+                "跳过所有已经成功的图片",
+                "结果不确定",
+                "不得自动",
+                "一个生成执行器",
+                "SHA-256",
+                "全部未删除项目均生成成功",
+            ),
+            "batch_generation.md",
+        ),
+        (
+            workflow_script_path,
+            (
+                "all_active_prompts_approved",
+                "verify_local",
+                "verified-local",
+                "GenerationUncertainError",
+                "acquire_generation_lock",
+                "resolve_item",
+                "inspect_image",
+                "image_sha256",
+                'status="uncertain"',
+                'status="generated"',
+                "build_delivery",
+            ),
+            "article_workflow.py",
+        ),
+        (
+            state_script_path,
+            (
+                "os.replace",
+                "canonical_hash",
+                "acquire_generation_lock",
+                "prompt_version",
+                '"phase": "planning"',
+                '"complete"',
+            ),
+            "workflow_state.py",
+        ),
+        (
+            delivery_script_path,
+            (
+                '"image-map.md"',
+                '"prompts.md"',
+                '"manifest.json"',
+                "_copy_verified_image",
+                "image_sha256",
+                'state["phase"] != "complete"',
+            ),
+            "delivery_builder.py",
+        ),
+    ]
+    for path, terms, label in contracts:
+        if path.is_file():
+            errors += require_terms(path, list(terms), label)
+
+    if schema_path.is_file():
+        try:
+            schema = json.loads(schema_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as exc:
+            fail(f"workflow-state.schema.json 不是有效 JSON：{exc}")
+            errors += 1
+        else:
+            phases = (
+                schema.get("properties", {})
+                .get("phase", {})
+                .get("enum", [])
+            )
+            expected_phases = [
+                "planning",
+                "plan_review",
+                "prompt_review",
+                "ready",
+                "generating",
+                "blocked",
+                "complete",
+            ]
+            if phases != expected_phases:
+                fail("文章工作流阶段定义不完整或顺序异常")
+                errors += 1
+
+    if gitignore_path.is_file():
+        ignored = {
+            line.strip()
+            for line in gitignore_path.read_text(encoding="utf-8").splitlines()
+            if line.strip() and not line.startswith("#")
+        }
+        if "runs/" not in ignored:
+            fail(".gitignore 必须忽略：runs/")
+            errors += 1
 
     return errors
 
@@ -816,7 +957,7 @@ def validate_image_connectors() -> int:
             for line in gitignore_path.read_text(encoding="utf-8").splitlines()
             if line.strip() and not line.startswith("#")
         }
-        for item in ("config.json", "generated/"):
+        for item in ("config.json", "generated/", "runs/"):
             if item not in ignored:
                 fail(f".gitignore 必须忽略：{item}")
                 errors += 1
@@ -953,6 +1094,7 @@ def main() -> int:
     errors += validate_structured_knowledge()
     errors += validate_category_subject_routing()
     errors += validate_image_connectors()
+    errors += validate_article_workflow()
     errors += validate_public_package()
 
     if errors:
@@ -968,6 +1110,7 @@ def main() -> int:
     print("[OK] 分类、意图与情绪条目字段完整。")
     print("[OK] 22 类主体路径完整，芯片、GPU 与政策默认不强制人物。")
     print("[OK] ThinkAI Image 2 与 ThinkAI Nano 配置、审核门和请求契约均已声明。")
+    print("[OK] 文章级工作流具备规划确认、全量审核、顺序生成、恢复与统一交付门禁。")
     print("[OK] 发布包仅包含允许名单内的产品文件和本地运行数据。")
     return 0
 

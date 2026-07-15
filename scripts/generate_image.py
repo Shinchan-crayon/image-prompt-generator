@@ -8,6 +8,8 @@ import hashlib
 import hmac
 import http.client
 import json
+import os
+import stat
 import subprocess
 import sys
 import urllib.error
@@ -54,6 +56,14 @@ SENSITIVE_HEADER_NAMES = {
     "api-key",
     "x-goog-api-key",
 }
+
+
+class GenerationError(RuntimeError):
+    """图片生成明确失败。"""
+
+
+class GenerationUncertainError(GenerationError):
+    """服务端可能已经生成或计费，本地不能安全判断结果。"""
 
 
 def load_raw_config(skill_root: Path) -> dict:
@@ -236,16 +246,27 @@ def request_json(
         status_code = exc.response.status_code if exc.response is not None else None
         detail = exc.response.text if exc.response is not None else str(exc)
         detail = sanitize_error_detail(detail, headers)
+        if status_code == 408 or (status_code is not None and status_code >= 500):
+            raise GenerationUncertainError(
+                f"{service_name} 返回 HTTP {status_code}，"
+                "无法安全确认付费生成请求是否已完成。"
+                f"请先检查渠道后台：{detail}"
+            ) from exc
         raise RuntimeError(
             f"{service_name} 请求失败，HTTP {status_code}：{detail}。"
             "付费生成请求不会自动重试。"
         ) from exc
     except (
-        requests.ConnectionError,
-        requests.Timeout,
-        requests.exceptions.ChunkedEncodingError,
+        requests.exceptions.MissingSchema,
+        requests.exceptions.InvalidSchema,
+        requests.exceptions.InvalidURL,
+        requests.exceptions.InvalidHeader,
     ) as exc:
-        raise RuntimeError(
+        raise GenerationError(
+            f"{service_name} 请求配置无效：{exc}"
+        ) from exc
+    except requests.RequestException as exc:
+        raise GenerationUncertainError(
             f"{service_name} 生成请求结果不确定，服务端可能已受理并计费。"
             "为避免重复生成，本工具不会自动重试；"
             f"请先在 {service_name} 后台确认任务记录，再决定是否重新执行。"
@@ -256,8 +277,9 @@ def request_json(
         return json.loads(payload)
     except json.JSONDecodeError as exc:
         payload = sanitize_error_detail(payload, headers)
-        raise RuntimeError(
-            f"{service_name} 返回了非 JSON 响应：{payload[:500]}"
+        raise GenerationUncertainError(
+            f"{service_name} 已返回成功响应，但响应不是可解析的 JSON，"
+            f"结果状态不确定：{payload[:500]}"
         ) from exc
 
 
@@ -281,7 +303,12 @@ def request_generation(config: dict, request: dict, adapter=None) -> dict:
         request["body"],
         service_name=config.get("provider_name", config["provider"]),
     )
-    extract_adapter_source(adapter, data, config)
+    try:
+        extract_adapter_source(adapter, data, config)
+    except Exception as exc:
+        raise GenerationUncertainError(
+            "图片渠道已经返回响应，但无法确认图片字段，结果状态不确定。"
+        ) from exc
     return data
 
 
@@ -459,14 +486,19 @@ def write_artifacts(
     request_body: dict,
     response_json: dict,
     output_dir: Optional[str],
+    output_dir_fd: Optional[int] = None,
 ) -> dict:
     stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
     target_dir = (
-        Path(output_dir).expanduser().resolve()
+        Path(output_dir).expanduser()
         if output_dir
         else skill_root / "generated" / stamp
     )
-    target_dir.mkdir(parents=True, exist_ok=True)
+    if output_dir_fd is None:
+        target_dir = target_dir.resolve()
+        target_dir.mkdir(parents=True, exist_ok=True)
+    else:
+        _verify_output_directory_identity(target_dir, output_dir_fd)
 
     adapter_id = (
         config["provider"]
@@ -487,30 +519,39 @@ def write_artifacts(
 
     request_path = target_dir / "request.json"
     response_path = target_dir / "response.json"
-    request_path.write_text(
-        json.dumps(request_body, ensure_ascii=False, indent=2) + "\n",
-        encoding="utf-8",
+    _write_output_bytes(
+        request_path,
+        (
+            json.dumps(request_body, ensure_ascii=False, indent=2) + "\n"
+        ).encode("utf-8"),
+        output_dir_fd,
     )
-    response_path.write_text(
-        json.dumps(
-            redact_snapshot(deepcopy(response_json), omitted_values),
-            ensure_ascii=False,
-            indent=2,
-        )
-        + "\n",
-        encoding="utf-8",
+    _write_output_bytes(
+        response_path,
+        (
+            json.dumps(
+                redact_snapshot(deepcopy(response_json), omitted_values),
+                ensure_ascii=False,
+                indent=2,
+            )
+            + "\n"
+        ).encode("utf-8"),
+        output_dir_fd,
     )
 
     image_bytes, source_type, image_url = extract_image_bytes(config, response_json)
     image_format, width, height = inspect_image(image_bytes)
     image_path = target_dir / f"image.{image_format}"
-    image_path.write_bytes(image_bytes)
+    _write_output_bytes(image_path, image_bytes, output_dir_fd)
+    if output_dir_fd is not None:
+        _verify_output_directory_identity(target_dir, output_dir_fd)
     is_remote_url = image_url.startswith(("https://", "http://"))
 
     artifacts = {
         "image_path": str(image_path),
         "request_path": str(request_path),
         "response_path": str(response_path),
+        "image_sha256": hashlib.sha256(image_bytes).hexdigest(),
         "image_url": redact_url(image_url) if is_remote_url else None,
         "image_source": (
             "base64"
@@ -520,6 +561,214 @@ def write_artifacts(
         "actual_size": f"{width}x{height}",
     }
     return artifacts
+
+
+def resolve_output_directory(
+    output_dir: Optional[Path],
+    allowed_output_root: Optional[Path] = None,
+) -> Optional[Path]:
+    if output_dir is None:
+        return None
+    raw_target = Path(output_dir).expanduser()
+    if allowed_output_root is None:
+        return raw_target
+
+    raw_root = Path(allowed_output_root).expanduser()
+    if raw_root.is_symlink() or raw_target.is_symlink():
+        raise GenerationError("文章图片输出目录不能使用符号链接。")
+    root = raw_root.resolve()
+    target = raw_target.resolve()
+    if target == root or root not in target.parents:
+        raise GenerationError("文章图片输出目录超出允许范围。")
+    return Path(os.path.abspath(raw_target))
+
+
+def _directory_open_flags() -> int:
+    return (
+        os.O_RDONLY
+        | getattr(os, "O_DIRECTORY", 0)
+        | getattr(os, "O_NOFOLLOW", 0)
+    )
+
+
+def _verify_output_directory_identity(path: Path, directory_fd: int) -> None:
+    try:
+        path_stat = os.stat(path, follow_symlinks=False)
+        fd_stat = os.fstat(directory_fd)
+    except OSError as exc:
+        raise GenerationUncertainError(
+            "文章图片输出目录在生成期间发生变化，不能安全保存结果。"
+        ) from exc
+    if (
+        not stat.S_ISDIR(path_stat.st_mode)
+        or path_stat.st_dev != fd_stat.st_dev
+        or path_stat.st_ino != fd_stat.st_ino
+    ):
+        raise GenerationUncertainError(
+            "文章图片输出目录在生成期间发生变化，不能安全保存结果。"
+        )
+
+
+def _open_bounded_output_directory(
+    output_dir: Path,
+    allowed_output_root: Path,
+    trusted_root: Path,
+) -> int:
+    anchor = Path(os.path.abspath(Path(trusted_root).expanduser()))
+    raw_root = Path(os.path.abspath(Path(allowed_output_root).expanduser()))
+    raw_target = Path(os.path.abspath(Path(output_dir).expanduser()))
+    try:
+        root_parts = raw_root.relative_to(anchor).parts
+        target_parts = raw_target.relative_to(raw_root).parts
+    except ValueError as exc:
+        raise GenerationError("文章图片输出目录超出可信根目录。") from exc
+    if len(target_parts) != 1 or target_parts[0] in {"", ".", ".."}:
+        raise GenerationError("文章图片输出目录必须直接位于允许目录内。")
+
+    current_fd = None
+    target_fd = None
+    keep_target_fd = False
+    try:
+        current_fd = os.open(anchor, _directory_open_flags())
+        for index, part in enumerate(root_parts):
+            if part in {"", ".", ".."}:
+                raise GenerationError("文章图片输出目录包含无效路径。")
+            if index == len(root_parts) - 1:
+                try:
+                    os.mkdir(part, mode=0o700, dir_fd=current_fd)
+                except FileExistsError:
+                    pass
+            next_fd = os.open(
+                part,
+                _directory_open_flags(),
+                dir_fd=current_fd,
+            )
+            os.close(current_fd)
+            current_fd = next_fd
+        try:
+            os.mkdir(target_parts[0], mode=0o700, dir_fd=current_fd)
+        except FileExistsError:
+            pass
+        target_fd = os.open(
+            target_parts[0],
+            _directory_open_flags(),
+            dir_fd=current_fd,
+        )
+        _verify_output_directory_identity(raw_target, target_fd)
+        keep_target_fd = True
+        return target_fd
+    except GenerationError:
+        raise
+    except OSError as exc:
+        raise GenerationError(
+            "无法安全创建文章图片输出目录。"
+        ) from exc
+    finally:
+        if current_fd is not None:
+            os.close(current_fd)
+        if target_fd is not None and not keep_target_fd:
+            os.close(target_fd)
+
+
+def _write_output_bytes(
+    path: Path,
+    content: bytes,
+    directory_fd: Optional[int],
+) -> None:
+    if directory_fd is None:
+        path.write_bytes(content)
+        return
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0)
+    file_fd = os.open(path.name, flags, 0o600, dir_fd=directory_fd)
+    with os.fdopen(file_fd, "wb") as handle:
+        handle.write(content)
+        handle.flush()
+        os.fsync(handle.fileno())
+
+
+def generate_approved_image(
+    skill_root: Path,
+    provider: str,
+    prompt: str,
+    approval_hash: str,
+    size: Optional[str] = None,
+    quality: str = "hd",
+    output_dir: Optional[Path] = None,
+    allowed_output_root: Optional[Path] = None,
+) -> dict:
+    """执行一张已审核图片，供单图 CLI 和文章工作流共同复用。"""
+
+    resolved_output_dir = resolve_output_directory(
+        output_dir,
+        allowed_output_root,
+    )
+    config = load_config(Path(skill_root), provider)
+    resolved_size = resolve_provider_size(config["provider"], size)
+    approval_quality = resolve_provider_quality(config["provider"], quality)
+    approved_prompt = validate_approval(
+        prompt,
+        approval_hash,
+        config["provider"],
+        config["model"],
+        resolved_size,
+        approval_quality,
+    )
+    adapter_id = (
+        config["provider"]
+        if config["provider"] in FORMAL_PROVIDER_IDS
+        else "custom"
+    )
+    adapter = get_adapter(adapter_id)
+    request = adapter.build_request(
+        config,
+        approved_prompt,
+        resolved_size,
+        approval_quality,
+    )
+    output_dir_fd = None
+    try:
+        if resolved_output_dir is not None and allowed_output_root is not None:
+            output_dir_fd = _open_bounded_output_directory(
+                resolved_output_dir,
+                allowed_output_root,
+                Path(skill_root),
+            )
+        response_json = request_generation(config, request, adapter)
+        try:
+            artifacts = write_artifacts(
+                Path(skill_root),
+                config,
+                request["body"],
+                response_json,
+                (
+                    str(resolved_output_dir)
+                    if resolved_output_dir is not None
+                    else None
+                ),
+                output_dir_fd=output_dir_fd,
+            )
+        except GenerationUncertainError:
+            raise
+        except Exception as exc:
+            raise GenerationUncertainError(
+                "图片渠道已经返回结果，但本地保存或下载失败，"
+                "不得自动重新发送生成请求。"
+            ) from exc
+    finally:
+        if output_dir_fd is not None:
+            os.close(output_dir_fd)
+
+    summary = {
+        "provider": config["provider"],
+        "base_url": config.get("base_url", config.get("endpoint")),
+        "model": config["model"],
+        "requested_size": resolved_size,
+        "actual_size": artifacts["actual_size"],
+        **artifacts,
+    }
+    if approval_quality:
+        summary["quality"] = approval_quality
+    return summary
 
 
 def parse_args() -> argparse.Namespace:
@@ -556,48 +805,18 @@ def main() -> int:
     skill_root = Path(__file__).resolve().parent.parent
 
     try:
-        config = load_config(skill_root, args.provider)
-        size = resolve_provider_size(config["provider"], args.size)
-        approval_quality = resolve_provider_quality(config["provider"], args.quality)
-        approved_prompt = validate_approval(
+        summary = generate_approved_image(
+            skill_root,
+            args.provider,
             args.prompt,
             args.approval_hash,
-            config["provider"],
-            config["model"],
-            size,
-            approval_quality,
-        )
-        adapter_id = config["provider"] if config["provider"] in FORMAL_PROVIDER_IDS else "custom"
-        adapter = get_adapter(adapter_id)
-        request = adapter.build_request(
-            config,
-            approved_prompt,
-            size,
-            approval_quality,
-        )
-        body = request["body"]
-        response_json = request_generation(config, request, adapter)
-        artifacts = write_artifacts(
-            skill_root,
-            config,
-            body,
-            response_json,
-            None,
+            args.size,
+            args.quality,
         )
     except Exception as exc:
         print(str(exc), file=sys.stderr)
         return 1
 
-    summary = {
-        "provider": config["provider"],
-        "base_url": config.get("base_url", config.get("endpoint")),
-        "model": config["model"],
-        "requested_size": size,
-        "actual_size": artifacts["actual_size"],
-        **artifacts,
-    }
-    if approval_quality:
-        summary["quality"] = approval_quality
     print(json.dumps(summary, ensure_ascii=False, indent=2))
     return 0
 
