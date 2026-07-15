@@ -44,7 +44,7 @@ from workflow_state import (
 )
 
 
-SKILL_ROOT = Path(__file__).resolve().parent.parent
+PLUGIN_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_MAX_WORKERS = 3
 MAX_MAX_WORKERS = 8
 
@@ -558,7 +558,7 @@ def main() -> int:
                 else Path(args.article_file).read_text(encoding="utf-8")
             )
             run_dir = initialize_run(
-                SKILL_ROOT,
+                PLUGIN_ROOT,
                 article_text,
                 args.title,
                 args.provider,
@@ -568,7 +568,7 @@ def main() -> int:
             )
             result = {"run_id": run_dir.name, "run_dir": str(run_dir)}
         else:
-            run_dir = resolve_run(SKILL_ROOT, args.run)
+            run_dir = resolve_run(PLUGIN_ROOT, args.run)
             if args.command == "set-plan":
                 state = set_plan(run_dir, _read_json(args.plan_file))
             elif args.command == "approve-plan":
@@ -599,7 +599,7 @@ def main() -> int:
                 )
             elif args.command == "generate":
                 state = batch_generate(
-                    SKILL_ROOT,
+                    PLUGIN_ROOT,
                     run_dir,
                     args.execute,
                     max_workers=args.max_workers,

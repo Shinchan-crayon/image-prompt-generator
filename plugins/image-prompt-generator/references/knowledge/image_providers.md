@@ -28,7 +28,7 @@ python3 scripts/configure_provider.py <provider>
 
 其中 `<provider>` 为 `thinkai-image2`、`thinkai-nano`、`volcengine`、`openai` 或
 `google`。旧 ID `thinkai` 会映射到 `thinkai-image2`。脚本从
-`data/image_providers.json` 读取固定 API 地址、推荐模型、默认尺寸和适配器，不要求普通
+`assets/data/image_providers.json` 读取固定 API 地址、推荐模型、默认尺寸和适配器，不要求普通
 用户手工填写 URL 或模型 ID。API Key 使用隐藏输入；自动化环境只能通过标准输入传入。
 
 配置后运行：
@@ -50,7 +50,7 @@ python3 scripts/provider_preflight.py --provider <provider>
 | `openai` | OpenAI GPT Image | 中文或中英混合 | 使用 OpenAI Image API |
 | `google` | Google Nano Banana | 中文或中英混合 | 使用 Google 图片生成接口 |
 
-正式渠道的地址、模型别名和默认尺寸集中维护在 `data/image_providers.json`。不要把 API Key
+正式渠道的地址、模型别名和默认尺寸集中维护在 `assets/data/image_providers.json`。不要把 API Key
 写入注册表，也不要允许配置文件覆盖正式渠道地址。模型发生变化时更新注册表和适配器，
 普通用户仍只选择渠道并输入 Key。
 

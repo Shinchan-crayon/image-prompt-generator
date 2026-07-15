@@ -1,0 +1,4 @@
+interface:
+  display_name: "封面 Prompt 设计师"
+  short_description: "将文章核心观点设计成具有编辑品质和标题留白的封面提示词"
+  default_prompt: "使用 $cover-prompt-designer 为这篇文章设计封面 Prompt。"

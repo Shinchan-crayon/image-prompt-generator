@@ -7,8 +7,8 @@ from typing import Optional
 from urllib.parse import urlparse
 
 
-SKILL_ROOT = Path(__file__).resolve().parent.parent
-DEFAULT_REGISTRY_PATH = SKILL_ROOT / "data" / "image_providers.json"
+PLUGIN_ROOT = Path(__file__).resolve().parent.parent
+DEFAULT_REGISTRY_PATH = PLUGIN_ROOT / "assets" / "data" / "image_providers.json"
 FORMAL_PROVIDER_IDS = (
     "thinkai-image2",
     "thinkai-nano",

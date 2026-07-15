@@ -1,0 +1,4 @@
+interface:
+  display_name: "正文配图设计师"
+  short_description: "为指定标题、段落或章节设计清晰易懂的解释型配图提示词"
+  default_prompt: "使用 $section-illustration-designer 为这个章节设计正文配图 Prompt。"

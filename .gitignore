@@ -1,6 +1,6 @@
 .DS_Store
 **/__pycache__/
 **/*.pyc
-plugins/image-prompt-generator/skills/image-prompt-generator/config.json
-plugins/image-prompt-generator/skills/image-prompt-generator/generated/
-plugins/image-prompt-generator/skills/image-prompt-generator/runs/
+plugins/image-prompt-generator/config.json
+plugins/image-prompt-generator/generated/
+plugins/image-prompt-generator/runs/

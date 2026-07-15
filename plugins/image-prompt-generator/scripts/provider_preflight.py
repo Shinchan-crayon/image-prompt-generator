@@ -122,13 +122,13 @@ def main() -> int:
     parser.add_argument("--provider", help="要验证的渠道 ID")
     parser.add_argument("--list", action="store_true", help="列出全部渠道配置状态")
     args = parser.parse_args()
-    skill_root = Path(__file__).resolve().parent.parent
+    plugin_root = Path(__file__).resolve().parent.parent
 
     try:
         result = (
-            verify_local(skill_root, args.provider)
+            verify_local(plugin_root, args.provider)
             if args.provider and not args.list
-            else list_status(skill_root)
+            else list_status(plugin_root)
         )
     except Exception as exc:
         print(str(exc), file=sys.stderr)

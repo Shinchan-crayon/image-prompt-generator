@@ -1,0 +1,4 @@
+interface:
+  display_name: "已批准图片生成器"
+  short_description: "校验用户批准、版本哈希和执行条件后生成单图或文章批次"
+  default_prompt: "使用 $approved-image-generator 生成这些已经逐项批准的图片。"

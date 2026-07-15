@@ -15,7 +15,7 @@
 
 ## 三条主体路径
 
-先从 `rules/knowledge_routing.md` 取得分类默认路径，再用核心观点检查是否需要覆盖。三条路径
+先从 `references/rules/knowledge_routing.md` 取得分类默认路径，再用核心观点检查是否需要覆盖。三条路径
 互相平行，不是“人物失败后逐级降级”的顺序。
 
 ### 人物行动优先

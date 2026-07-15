@@ -32,14 +32,14 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    skill_root = Path(__file__).resolve().parent.parent
+    plugin_root = Path(__file__).resolve().parent.parent
     api_key = (
         sys.stdin.readline().rstrip("\r\n")
         if args.api_key_stdin
         else getpass.getpass("ThinkAI Image 2 API Key: ")
     )
     try:
-        config_path = save_config(skill_root, api_key)
+        config_path = save_config(plugin_root, api_key)
     except ValueError as exc:
         parser.error(str(exc))
 

@@ -6,20 +6,20 @@
 
 开始分析时读取：
 
-1. `knowledge/article_understanding.md`
-2. `knowledge/model_language.md`
-3. `knowledge/scene_photography.md`
-4. `rules/core_rules.md`
-5. `rules/quality_scoring.md`
-6. `rules/negative_rules.md`
+1. `references/knowledge/article_understanding.md`
+2. `references/knowledge/model_language.md`
+3. `references/knowledge/scene_photography.md`
+4. `references/rules/core_rules.md`
+5. `references/rules/quality_scoring.md`
+6. `references/rules/negative_rules.md`
 
 ## 阶段固定加载
 
 每次任务都会读取，但只在对应阶段加载：
 
-- 设计镜头与留白时读取 `knowledge/composition.md`；
+- 设计镜头与留白时读取 `references/knowledge/composition.md`；
 - 写最终 Prompt 时读取 `templates/prompt_templates.md`；
-- 生成后读取 `rules/self_check.md`。
+- 生成后读取 `references/rules/self_check.md`。
 
 ## 条件加载
 
@@ -27,22 +27,23 @@
 
 | 判断结果 | 加载文件 |
 |---|---|
-| 文章分类 | `knowledge/article_classification.md` 对应条目 |
-| 写作意图 | `knowledge/intent_library.md` 对应条目 |
-| 主情绪 | `knowledge/emotion_library.md` 对应条目 |
-| 视觉策略 | `knowledge/visual_strategy.md` |
-| 需要隐喻 | `knowledge/visual_metaphors.md` |
-| 需要解释机制 | `knowledge/explanatory_visuals.md` |
-| 需要标题排版 | `knowledge/typography.md` |
-| 需要确定色彩 | `knowledge/color_language.md` |
-| 需要风格校准 | `knowledge/editorial_style.md` |
-| 需要检查陈词滥调 | `knowledge/negative_patterns.md` |
+| 文章分类 | `references/knowledge/article_classification.md` 对应条目 |
+| 写作意图 | `references/knowledge/intent_library.md` 对应条目 |
+| 主情绪 | `references/knowledge/emotion_library.md` 对应条目 |
+| 视觉策略 | `references/knowledge/visual_strategy.md` |
+| 需要隐喻 | `references/knowledge/visual_metaphors.md` |
+| 需要解释机制 | `references/knowledge/explanatory_visuals.md` |
+| 需要标题排版 | `references/knowledge/typography.md` |
+| 需要确定色彩 | `references/knowledge/color_language.md` |
+| 需要风格校准 | `references/knowledge/editorial_style.md` |
+| 需要检查陈词滥调 | `references/knowledge/negative_patterns.md` |
 
-封面模式继续读取 `rules/cover_rules.md` 和 `templates/cover_output.md`。
-正文配图模式继续读取 `rules/content_rules.md` 和
+封面模式继续读取 `references/rules/cover_rules.md` 和 `templates/cover_output.md`。
+正文配图模式继续读取 `references/rules/content_rules.md` 和
 `templates/content_output.md`。
 
-`templates/prompt_templates.md`、`knowledge/composition.md` 和 `rules/self_check.md`
+`templates/prompt_templates.md`、`references/knowledge/composition.md` 和
+`references/rules/self_check.md`
 属于阶段固定资源，不因文章分类变化而跳过。
 
 ## 决策优先级
@@ -123,4 +124,4 @@
 1. 选择结构最接近的上位分类；
 2. 明确标记为 `[INFERENCE]`；
 3. 仍按现实场景、单一动作、明确光线设计；
-4. 任务结束后可按 `knowledge/extension_guide.md` 增加新条目。
+4. 任务结束后可按 `references/knowledge/extension_guide.md` 增加新条目。

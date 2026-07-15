@@ -2,99 +2,98 @@
 
 ![Image Prompt Generator Logo](plugins/image-prompt-generator/assets/logo.png)
 
-一个可从 GitHub 安装的 Codex Plugin，用于把科技新闻、AI 行业分析、产品评测、商业洞察、
-教程和教育内容转化为专业封面与正文配图 Prompt。
+Image Prompt Generator 是一个可从 GitHub 安装的 Codex Plugin，用于把各类文章转化为专业
+封面与正文配图 Prompt。插件由一个总控 Skill、五个专项 Skill 和一套插件级共享知识库组成。
 
-插件先理解文章、提炼单一核心观点并设计视觉方案。Prompt 完整展示并经用户明确批准后，
-才允许调用已配置的图片渠道。默认渠道为 ThinkAI Image 2，也支持 ThinkAI Nano、火山
-引擎 Seedream、OpenAI GPT Image、Google Nano Banana 和受控的其他同步图片接口。
+它先完成文章理解、图片规划、视觉设计和独立质检。只有全部 Prompt 的当前版本都展示给
+用户并审核通过后，才允许调用已配置的图片渠道。
 
-## 从 GitHub 安装
+## 安装
 
-在终端添加本仓库提供的 marketplace：
-
-```bash
-codex plugin marketplace add Shinchan-crayon/image-prompt-generator
-```
-
-重启 Codex 桌面应用，打开插件页面，选择 **Image Prompt Generator** marketplace，然后
-安装同名插件。插件页面会显示本仓库提供的名称、Logo、简介和示例指令。
-
-也可以使用完整 Git 地址：
+把本仓库地址交给 Codex，要求添加并安装这个 marketplace；也可以在终端执行：
 
 ```bash
 codex plugin marketplace add https://github.com/Shinchan-crayon/image-prompt-generator.git
 ```
 
+然后在 Codex 插件页面安装 **Image Prompt Generator**，并在新任务中使用。
+
+## 六个 Skill
+
+- `$image-prompt-generator`：默认总控入口，管理完整工作流和人工审核门禁。
+- `$article-visual-planner`：理解文章并规划封面与正文配图。
+- `$cover-prompt-designer`：设计封面 Prompt。
+- `$section-illustration-designer`：设计指定章节的正文配图 Prompt。
+- `$image-prompt-reviewer`：执行硬门槛和九分质量审核。
+- `$approved-image-generator`：只生成已明确批准且版本哈希一致的图片。
+
+通常只需要调用 `$image-prompt-generator`。专项 Skill 适合需要单独规划、设计、质检或执行
+已批准生图的用户。
+
 ## 使用
 
-安装后在新任务中调用：
+```text
+使用 $image-prompt-generator，为这篇文章规划封面和正文配图。
+先让我确认图片规划，全部 Prompt 审核通过后再统一生图。
+```
 
 ```text
-使用 $image-prompt-generator，为下面这篇文章生成 16:9 封面提示词，
+使用 $cover-prompt-designer，为这篇文章设计 16:9 封面 Prompt，
 目标模型为 Midjourney。
 ```
 
 ```text
-使用 $image-prompt-generator，为整篇文章规划封面和正文配图。
-全部 Prompt 审核通过后，再统一生图。
+使用 $section-illustration-designer，为这个章节设计 4:3 解释型配图 Prompt，
+目标模型为 Seedream。
 ```
 
-插件只支持封面模式和正文配图模式；文章级工作流是两种模式之上的规划、审核和批量执行层。
+插件只支持封面模式和正文配图模式。整篇文章流程是两种模式之上的编排层，不是第三种模式。
 
 ## 图片渠道
 
-只生成 Prompt 时不需要安装额外依赖或配置 API Key。首次调用图片渠道时，Agent 会在插件
-内安装 `requirements.txt` 中的 Python 依赖，并通过隐藏输入引导配置所选渠道的 API Key。
-API Key 不应放入对话、命令参数、案例或仓库。
-
-支持的渠道：
+只生成 Prompt 时无需 API Key。需要生图时支持：
 
 - ThinkAI Image 2，默认
 - ThinkAI Nano
 - 火山引擎 Seedream
 - OpenAI GPT Image
 - Google Nano Banana
-- 受控的其他同步图片接口
+- 符合受控同步协议的其他图片渠道
+
+Agent 会让用户选择渠道，并通过隐藏输入配置 API Key。付费请求结果不确定时不会自动重试。
 
 ## 仓库结构
 
 ```text
 image-prompt-generator/
 ├── .agents/plugins/marketplace.json
-├── plugins/
-│   └── image-prompt-generator/
-│       ├── .codex-plugin/plugin.json
-│       ├── assets/
-│       └── skills/
-│           └── image-prompt-generator/
-│               ├── SKILL.md
-│               ├── AGENTS.md
-│               ├── knowledge/
-│               ├── rules/
-│               ├── templates/
-│               ├── examples/
-│               ├── data/
-│               └── scripts/
-├── README.md
-└── .gitignore
+├── plugins/image-prompt-generator/
+│   ├── .codex-plugin/plugin.json
+│   ├── README.md
+│   ├── AGENTS.md
+│   ├── references/
+│   │   ├── knowledge/
+│   │   ├── rules/
+│   │   └── examples/
+│   ├── templates/
+│   ├── scripts/
+│   ├── assets/data/
+│   └── skills/
+│       ├── image-prompt-generator/
+│       ├── article-visual-planner/
+│       ├── cover-prompt-designer/
+│       ├── section-illustration-designer/
+│       ├── image-prompt-reviewer/
+│       └── approved-image-generator/
+└── README.md
 ```
 
-插件 manifest 只负责安装、发现与展示；完整运行逻辑仍由插件内唯一的
-`image-prompt-generator` Skill 管理。
+共享知识库、规则、模板、案例和连接器只维护一份；六个 Skill 只保留各自入口与 UI 元数据。
 
-## 本地验证
-
-验证原生插件结构：
+## 验证
 
 ```bash
+python3 plugins/image-prompt-generator/scripts/check_skill.py
 python3 ~/.codex/skills/.system/plugin-creator/scripts/validate_plugin.py \
   plugins/image-prompt-generator
-```
-
-验证内置 Skill：
-
-```bash
-cd plugins/image-prompt-generator/skills/image-prompt-generator
-python3 scripts/check_skill.py
 ```

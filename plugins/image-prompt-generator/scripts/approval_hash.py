@@ -64,10 +64,10 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    skill_root = Path(__file__).resolve().parent.parent
+    plugin_root = Path(__file__).resolve().parent.parent
     try:
         result = calculate_hash(
-            skill_root,
+            plugin_root,
             args.provider,
             args.prompt,
             args.size,

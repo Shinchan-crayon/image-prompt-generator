@@ -236,13 +236,13 @@ def main() -> int:
         return 0
 
     provider_id = normalize_provider_id(args.provider)
-    skill_root = Path(__file__).resolve().parent.parent
+    plugin_root = Path(__file__).resolve().parent.parent
     try:
         if provider_id in FORMAL_PROVIDER_IDS:
             spec = get_provider(provider_id)
             api_key = read_api_key(args.api_key_stdin, spec["name"])
             path = save_formal_provider_config(
-                skill_root,
+                plugin_root,
                 provider_id,
                 api_key,
                 args.model_alias,
@@ -261,7 +261,7 @@ def main() -> int:
                 parser.error("custom 必须提供 --profile、--endpoint 和 --model。")
             api_key = read_api_key(args.api_key_stdin, args.name)
             path = save_custom_provider_config(
-                skill_root,
+                plugin_root,
                 provider_id=args.custom_id,
                 display_name=args.name,
                 api_key=api_key,

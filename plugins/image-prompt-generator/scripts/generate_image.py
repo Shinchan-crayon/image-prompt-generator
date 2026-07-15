@@ -24,7 +24,7 @@ try:
     import requests
 except ModuleNotFoundError:
     print(
-        "缺少 Python 依赖 requests。请在 Skill 根目录运行："
+        "缺少 Python 依赖 requests。请在插件根目录运行："
         "python3 -m pip install -r requirements.txt",
         file=sys.stderr,
     )
@@ -802,11 +802,11 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = parse_args()
-    skill_root = Path(__file__).resolve().parent.parent
+    plugin_root = Path(__file__).resolve().parent.parent
 
     try:
         summary = generate_approved_image(
-            skill_root,
+            plugin_root,
             args.provider,
             args.prompt,
             args.approval_hash,

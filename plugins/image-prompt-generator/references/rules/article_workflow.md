@@ -59,7 +59,7 @@ python3 scripts/article_workflow.py init \
 - 图片作用。
 - 比例、渠道尺寸和画面风格。
 
-按 `templates/image_plan.md` 展示规划。用户修改时重新保存完整规划；用户明确确认后才能
+按插件根目录的 `templates/image_plan.md` 展示规划。用户修改时重新保存完整规划；用户明确确认后才能
 进入 Prompt 阶段。
 
 替换完整规划会重建项目列表，并使此前所有 Prompt 与批准状态失效。旧 Prompt 文件即使
@@ -89,7 +89,7 @@ python3 scripts/article_workflow.py init \
 
 ## 审核进度
 
-每次批准或修改后按 `templates/batch_review.md` 汇报：
+每次批准或修改后按插件根目录的 `templates/batch_review.md` 汇报：
 
 - 已批准数量。
 - 等待审核数量。
@@ -116,7 +116,7 @@ python3 scripts/article_workflow.py status --run '<RUN_ID>'
 - `blocked`：先处理失败或结果不确定项目。
 - `complete`：不重复生成，直接检查或重建交付包。
 
-结果不确定但本地已有完整产物时，按 `rules/batch_generation.md` 的 `resolve-item` 规则
+结果不确定但本地已有完整产物时，按 `references/rules/batch_generation.md` 的 `resolve-item` 规则
 核验并接纳；不能验证时继续保持阻塞。
 
 不得依赖对话记忆猜测进度，也不得直接手工修改 `workflow-state.json`。

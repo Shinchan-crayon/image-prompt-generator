@@ -1,0 +1,4 @@
+interface:
+  display_name: "文章视觉规划师"
+  short_description: "分析完整文章并规划封面、正文配图位置与每张图片任务"
+  default_prompt: "使用 $article-visual-planner 分析这篇文章并规划需要的图片。"

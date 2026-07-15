@@ -72,7 +72,7 @@
 
 ## 新增模型
 
-只在确认模型的语言偏好或参数能力后更新 `knowledge/model_language.md`。无法确认时，
+只在确认模型的语言偏好或参数能力后更新 `references/knowledge/model_language.md`。无法确认时，
 使用通用自然语言 Prompt，不编造参数。
 
 ## 质量检查

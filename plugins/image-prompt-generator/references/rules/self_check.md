@@ -1,6 +1,6 @@
 # 自检与重设计
 
-生成后先执行硬门槛，再执行评分。完整评分规则见 `rules/quality_scoring.md`。
+生成后先执行硬门槛，再执行评分。完整评分规则见 `references/rules/quality_scoring.md`。
 
 ## 硬门槛复核
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""检查 Image Prompt Generator 的结构与关键契约。"""
+"""检查 Image Prompt Generator Codex Plugin 的结构与关键契约。"""
 
 from pathlib import Path
 from collections import Counter
@@ -9,50 +9,67 @@ import sys
 
 
 ROOT = Path(__file__).resolve().parents[1]
+REFERENCES = ROOT / "references"
+KNOWLEDGE = REFERENCES / "knowledge"
+RULES = REFERENCES / "rules"
+EXAMPLES = REFERENCES / "examples"
+ASSETS_DATA = ROOT / "assets" / "data"
+SKILLS = ROOT / "skills"
+ORCHESTRATOR = SKILLS / "image-prompt-generator"
+
+EXPECTED_SKILLS = {
+    "image-prompt-generator",
+    "article-visual-planner",
+    "cover-prompt-designer",
+    "section-illustration-designer",
+    "image-prompt-reviewer",
+    "approved-image-generator",
+}
 
 REQUIRED_FILES = [
-    "SKILL.md",
+    ".codex-plugin/plugin.json",
     "AGENTS.md",
     "README.md",
-    "agents/openai.yaml",
-    "knowledge/model_language.md",
-    "knowledge/image_providers.md",
-    "knowledge/article_understanding.md",
-    "knowledge/article_classification.md",
-    "knowledge/intent_library.md",
-    "knowledge/emotion_library.md",
-    "knowledge/visual_strategy.md",
-    "knowledge/scene_photography.md",
-    "knowledge/visual_metaphors.md",
-    "knowledge/composition.md",
-    "knowledge/editorial_style.md",
-    "knowledge/explanatory_visuals.md",
-    "knowledge/typography.md",
-    "knowledge/color_language.md",
-    "knowledge/negative_patterns.md",
-    "knowledge/extension_guide.md",
-    "rules/core_rules.md",
-    "rules/knowledge_routing.md",
-    "rules/cover_rules.md",
-    "rules/content_rules.md",
-    "rules/negative_rules.md",
-    "rules/quality_scoring.md",
-    "rules/self_check.md",
-    "rules/generation_workflow.md",
-    "rules/article_workflow.md",
-    "rules/batch_generation.md",
+    "assets/icon.png",
+    "assets/logo.png",
+    "references/knowledge/model_language.md",
+    "references/knowledge/image_providers.md",
+    "references/knowledge/article_understanding.md",
+    "references/knowledge/article_classification.md",
+    "references/knowledge/intent_library.md",
+    "references/knowledge/emotion_library.md",
+    "references/knowledge/visual_strategy.md",
+    "references/knowledge/scene_photography.md",
+    "references/knowledge/visual_metaphors.md",
+    "references/knowledge/composition.md",
+    "references/knowledge/editorial_style.md",
+    "references/knowledge/explanatory_visuals.md",
+    "references/knowledge/typography.md",
+    "references/knowledge/color_language.md",
+    "references/knowledge/negative_patterns.md",
+    "references/knowledge/extension_guide.md",
+    "references/rules/core_rules.md",
+    "references/rules/knowledge_routing.md",
+    "references/rules/cover_rules.md",
+    "references/rules/content_rules.md",
+    "references/rules/negative_rules.md",
+    "references/rules/quality_scoring.md",
+    "references/rules/self_check.md",
+    "references/rules/generation_workflow.md",
+    "references/rules/article_workflow.md",
+    "references/rules/batch_generation.md",
     "templates/cover_output.md",
     "templates/content_output.md",
     "templates/prompt_templates.md",
     "templates/image_plan.md",
     "templates/batch_review.md",
-    "examples/cover_example.md",
-    "examples/content_example.md",
-    "examples/library/index.md",
-    "examples/library/cases-001-025.md",
-    "examples/library/cases-026-050.md",
-    "examples/library/cases-051-075.md",
-    "examples/library/cases-076-100.md",
+    "references/examples/cover_example.md",
+    "references/examples/content_example.md",
+    "references/examples/library/index.md",
+    "references/examples/library/cases-001-025.md",
+    "references/examples/library/cases-026-050.md",
+    "references/examples/library/cases-051-075.md",
+    "references/examples/library/cases-076-100.md",
     "scripts/configure_api_key.py",
     "scripts/configure_provider.py",
     "scripts/approval_hash.py",
@@ -70,85 +87,68 @@ REQUIRED_FILES = [
     "scripts/providers/openai_image.py",
     "scripts/providers/google_image.py",
     "scripts/providers/custom.py",
-    "data/image_providers.json",
-    "data/workflow-state.schema.json",
+    "assets/data/image_providers.json",
+    "assets/data/workflow-state.schema.json",
     "requirements.txt",
     "config.example.json",
     ".gitignore",
 ]
 
-ALLOWED_RELEASE_FILES = set(REQUIRED_FILES) | {
-    "scripts/check_skill.py",
-}
+for skill_name in EXPECTED_SKILLS:
+    REQUIRED_FILES.extend(
+        (
+            f"skills/{skill_name}/SKILL.md",
+            f"skills/{skill_name}/agents/openai.yaml",
+        )
+    )
 
-ALLOWED_RUNTIME_FILES = {
-    "config.json",
-}
-
+ALLOWED_RELEASE_FILES = set(REQUIRED_FILES) | {"scripts/check_skill.py"}
 ALLOWED_RELEASE_DIRECTORIES = {
-    "agents",
-    "data",
-    "examples",
-    "examples/library",
-    "knowledge",
-    "rules",
+    ".codex-plugin",
+    "assets",
+    "assets/data",
+    "references",
+    "references/examples",
+    "references/examples/library",
+    "references/knowledge",
+    "references/rules",
     "scripts",
     "scripts/providers",
+    "skills",
     "templates",
 }
-
-ALLOWED_RUNTIME_DIRECTORIES = {
-    "generated",
-    "runs",
-}
+for skill_name in EXPECTED_SKILLS:
+    ALLOWED_RELEASE_DIRECTORIES.update(
+        {
+            f"skills/{skill_name}",
+            f"skills/{skill_name}/agents",
+        }
+    )
 
 REQUIRED_SKILL_TERMS = [
     "封面模式",
     "正文配图模式",
-    "只支持两种模式",
-    "文章理解卡",
-    "[FACT]",
-    "[INFERENCE]",
-    "低于 9 分",
-    "案例索引",
-    "用户审核",
-    "ThinkAI",
-    "ThinkAI Nano",
-    "火山引擎",
-    "OpenAI",
-    "Google",
-    "其他",
-    "--approved",
-    "--approval-hash",
-    "文章级工作流",
-    "全部 Prompt",
-    "断点恢复",
-    "统一交付",
+    "只支持两种视觉模式",
+    "$article-visual-planner",
+    "$cover-prompt-designer",
+    "$section-illustration-designer",
+    "$image-prompt-reviewer",
+    "$approved-image-generator",
+    "runs/<任务ID>/workflow-state.json",
+    "等待用户明确确认",
+    "全部当前版本 Prompt",
+    "明确批准",
+    "恢复时跳过已成功项目",
+    "不是第三种视觉模式",
 ]
 
 REQUIRED_SKILL_LINKS = [
-    "AGENTS.md",
-    "rules/knowledge_routing.md",
-    "knowledge/article_understanding.md",
-    "rules/core_rules.md",
-    "knowledge/model_language.md",
-    "knowledge/image_providers.md",
-    "knowledge/scene_photography.md",
-    "rules/quality_scoring.md",
-    "rules/negative_rules.md",
-    "knowledge/composition.md",
-    "rules/self_check.md",
-    "rules/generation_workflow.md",
-    "rules/article_workflow.md",
-    "rules/batch_generation.md",
-    "rules/cover_rules.md",
-    "rules/content_rules.md",
-    "templates/cover_output.md",
-    "templates/content_output.md",
-    "templates/prompt_templates.md",
-    "templates/image_plan.md",
-    "templates/batch_review.md",
-    "examples/library/index.md",
+    "../../references/rules/knowledge_routing.md",
+    "../../references/rules/article_workflow.md",
+    "../../references/rules/batch_generation.md",
+    "../../templates/image_plan.md",
+    "../../templates/batch_review.md",
+    "../../scripts/article_workflow.py",
 ]
 
 REQUIRED_MODEL_TERMS = [
@@ -287,7 +287,7 @@ def require_terms(path: Path, terms: list[str], label: str) -> int:
 
 def parse_cases() -> list[dict[str, str]]:
     cases = []
-    for case_file in sorted((ROOT / "examples" / "library").glob("cases-*.md")):
+    for case_file in sorted((EXAMPLES / "library").glob("cases-*.md")):
         text = case_file.read_text(encoding="utf-8")
         blocks = re.split(r"(?=^## CASE-\d{3}\b)", text, flags=re.MULTILINE)
         for block in blocks:
@@ -390,7 +390,7 @@ def validate_markdown_links() -> int:
 
 def validate_knowledge_entrypoints() -> int:
     errors = 0
-    for knowledge_path in sorted((ROOT / "knowledge").glob("*.md")):
+    for knowledge_path in sorted(KNOWLEDGE.glob("*.md")):
         text = knowledge_path.read_text(encoding="utf-8")
         if "## 何时读取" not in text:
             fail(f"知识文件缺少渐进加载入口：{knowledge_path.relative_to(ROOT)}")
@@ -402,21 +402,21 @@ def validate_structured_knowledge() -> int:
     errors = 0
     contracts = [
         (
-            ROOT / "knowledge" / "article_classification.md",
+            KNOWLEDGE / "article_classification.md",
             r"^## \d{2}\. ",
             ["分类说明", "推荐视觉方向", "推荐构图", "推荐风格", "推荐色彩", "常见错误"],
             22,
             "文章分类",
         ),
         (
-            ROOT / "knowledge" / "intent_library.md",
+            KNOWLEDGE / "intent_library.md",
             r"^## \d{2}\. ",
             ["判断线索", "视觉任务", "主体与动作", "构图选择", "应避免的误读"],
             13,
             "写作意图",
         ),
         (
-            ROOT / "knowledge" / "emotion_library.md",
+            KNOWLEDGE / "emotion_library.md",
             r"^## \d{2}\. ",
             ["语义边界", "可执行视觉选择", "光线与色彩", "强度控制", "禁止套路"],
             14,
@@ -477,12 +477,12 @@ def validate_mode_boundary(skill: str) -> int:
 
 def validate_article_workflow() -> int:
     errors = 0
-    article_path = ROOT / "rules" / "article_workflow.md"
-    batch_path = ROOT / "rules" / "batch_generation.md"
+    article_path = RULES / "article_workflow.md"
+    batch_path = RULES / "batch_generation.md"
     workflow_script_path = ROOT / "scripts" / "article_workflow.py"
     state_script_path = ROOT / "scripts" / "workflow_state.py"
     delivery_script_path = ROOT / "scripts" / "delivery_builder.py"
-    schema_path = ROOT / "data" / "workflow-state.schema.json"
+    schema_path = ASSETS_DATA / "workflow-state.schema.json"
     gitignore_path = ROOT / ".gitignore"
 
     contracts = [
@@ -606,10 +606,10 @@ def validate_article_workflow() -> int:
 
 def validate_category_subject_routing() -> int:
     errors = 0
-    routing_path = ROOT / "rules" / "knowledge_routing.md"
-    skill_path = ROOT / "SKILL.md"
-    strategy_path = ROOT / "knowledge" / "visual_strategy.md"
-    scene_path = ROOT / "knowledge" / "scene_photography.md"
+    routing_path = RULES / "knowledge_routing.md"
+    skill_path = ORCHESTRATOR / "SKILL.md"
+    strategy_path = KNOWLEDGE / "visual_strategy.md"
+    scene_path = KNOWLEDGE / "scene_photography.md"
 
     if not routing_path.is_file():
         return errors
@@ -699,7 +699,7 @@ def validate_image_connectors() -> int:
     requirements_path = ROOT / "requirements.txt"
     readme_path = ROOT / "README.md"
     config_example_path = ROOT / "config.example.json"
-    registry_path = ROOT / "data" / "image_providers.json"
+    registry_path = ASSETS_DATA / "image_providers.json"
     configure_path = ROOT / "scripts" / "configure_api_key.py"
     configure_provider_path = ROOT / "scripts" / "configure_provider.py"
     approval_hash_path = ROOT / "scripts" / "approval_hash.py"
@@ -713,7 +713,7 @@ def validate_image_connectors() -> int:
         "google": ROOT / "scripts" / "providers" / "google_image.py",
         "custom": ROOT / "scripts" / "providers" / "custom.py",
     }
-    workflow_path = ROOT / "rules" / "generation_workflow.md"
+    workflow_path = RULES / "generation_workflow.md"
     gitignore_path = ROOT / ".gitignore"
 
     if not requirements_path.is_file():
@@ -975,9 +975,6 @@ def validate_image_connectors() -> int:
 
 def validate_public_package() -> int:
     errors = 0
-
-    allowed_directories = ALLOWED_RELEASE_DIRECTORIES | ALLOWED_RUNTIME_DIRECTORIES
-    allowed_files = ALLOWED_RELEASE_FILES | ALLOWED_RUNTIME_FILES
     for path in sorted(ROOT.rglob("*")):
         relative_path = path.relative_to(ROOT)
         relative = relative_path.as_posix()
@@ -985,18 +982,153 @@ def validate_public_package() -> int:
         if relative_path.parts[0] == ".git":
             continue
 
-        if relative_path.parts[0] in ALLOWED_RUNTIME_DIRECTORIES:
-            continue
-
         if path.is_dir():
-            if relative not in allowed_directories:
+            if relative not in ALLOWED_RELEASE_DIRECTORIES:
                 fail(f"发布包包含未授权目录：{relative}")
                 errors += 1
             continue
 
-        if relative not in allowed_files:
+        if relative not in ALLOWED_RELEASE_FILES:
             fail(f"发布包包含未授权文件：{relative}")
             errors += 1
+
+    return errors
+
+
+def read_frontmatter(path: Path) -> dict[str, str]:
+    text = path.read_text(encoding="utf-8")
+    match = re.match(r"^---\n(.*?)\n---", text, flags=re.DOTALL)
+    if not match:
+        return {}
+    values = {}
+    for line in match.group(1).splitlines():
+        if ":" not in line:
+            continue
+        key, value = line.split(":", 1)
+        values[key.strip()] = value.strip()
+    return values
+
+
+def validate_plugin_structure() -> int:
+    errors = 0
+    discovered = {
+        path.parent.name
+        for path in SKILLS.glob("*/SKILL.md")
+    }
+    if discovered != EXPECTED_SKILLS:
+        fail(
+            "插件必须且只能包含六个 Skill，"
+            f"缺少 {sorted(EXPECTED_SKILLS - discovered)}，"
+            f"多出 {sorted(discovered - EXPECTED_SKILLS)}"
+        )
+        errors += 1
+
+    forbidden_shared_directories = {
+        "knowledge",
+        "rules",
+        "examples",
+        "templates",
+        "scripts",
+        "data",
+        "references",
+    }
+    for skill_name in EXPECTED_SKILLS:
+        skill_root = SKILLS / skill_name
+        skill_path = skill_root / "SKILL.md"
+        metadata_path = skill_root / "agents" / "openai.yaml"
+        if skill_path.is_file():
+            frontmatter = read_frontmatter(skill_path)
+            if frontmatter.get("name") != skill_name:
+                fail(f"{skill_name} 的 frontmatter name 不匹配")
+                errors += 1
+            if not frontmatter.get("description", "").startswith("Use when"):
+                fail(f"{skill_name} 的 description 必须使用明确的 Use when 触发语句")
+                errors += 1
+        if not metadata_path.is_file():
+            fail(f"{skill_name} 缺少 agents/openai.yaml")
+            errors += 1
+        for directory in forbidden_shared_directories:
+            if (skill_root / directory).exists():
+                fail(f"{skill_name} 不得复制插件级共享目录：{directory}")
+                errors += 1
+
+    manifest_path = ROOT / ".codex-plugin" / "plugin.json"
+    if manifest_path.is_file():
+        try:
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as exc:
+            fail(f"plugin.json 不是有效 JSON：{exc}")
+            errors += 1
+        else:
+            if manifest.get("name") != ROOT.name:
+                fail("plugin.json 的 name 必须与插件目录名一致")
+                errors += 1
+            if manifest.get("skills") != "./skills/":
+                fail("plugin.json 必须从 ./skills/ 暴露 Skill")
+                errors += 1
+            interface = manifest.get("interface", {})
+            for field in ("displayName", "shortDescription", "longDescription"):
+                if not interface.get(field):
+                    fail(f"plugin.json 缺少插件页字段：interface.{field}")
+                    errors += 1
+            for field in ("composerIcon", "logo"):
+                target = interface.get(field)
+                if not target or not (ROOT / target).is_file():
+                    fail(f"plugin.json 的 {field} 未指向有效资源")
+                    errors += 1
+
+    return errors
+
+
+def validate_release_content() -> int:
+    errors = 0
+    forbidden_names = {"config.json", ".DS_Store"}
+    forbidden_directories = {"generated", "runs", "__pycache__", ".pytest_cache"}
+    development_terms = (
+        "开发日志",
+        "迁移记录",
+        "测试报告",
+        "调试日志",
+        "修复过程",
+    )
+    secret_patterns = (
+        re.compile(r"\bsk-[A-Za-z0-9_-]{16,}\b"),
+        re.compile(r"\bAIza[A-Za-z0-9_-]{20,}\b"),
+        re.compile(r'(?i)"api_key"\s*:\s*"(?!<|your-|$)[^"]{12,}"'),
+    )
+
+    for path in ROOT.rglob("*"):
+        relative = path.relative_to(ROOT)
+        if path.name in forbidden_names:
+            fail(f"发布包不得包含本地文件：{relative}")
+            errors += 1
+        if path.is_dir() and path.name in forbidden_directories:
+            fail(f"发布包不得包含运行或缓存目录：{relative}")
+            errors += 1
+        if not path.is_file() or path.suffix.lower() not in {
+            ".md",
+            ".py",
+            ".json",
+            ".yaml",
+            ".yml",
+            ".txt",
+        }:
+            continue
+        if path.resolve() == Path(__file__).resolve():
+            continue
+        text = path.read_text(encoding="utf-8", errors="replace")
+        if re.search(r"/Users/[^/\s]+/", text):
+            fail(f"发布文件包含绝对用户路径：{relative}")
+            errors += 1
+        for term in development_terms:
+            if term in text:
+                fail(f"发布文件包含开发过程措辞：{relative} -> {term}")
+                errors += 1
+        for pattern in secret_patterns:
+            if pattern.search(text):
+                fail(f"发布文件疑似包含真实 API Key：{relative}")
+                errors += 1
+                break
 
     return errors
 
@@ -1009,7 +1141,7 @@ def main() -> int:
             fail(f"缺少文件：{relative_path}")
             errors += 1
 
-    skill_path = ROOT / "SKILL.md"
+    skill_path = ORCHESTRATOR / "SKILL.md"
     if skill_path.is_file():
         skill = skill_path.read_text(encoding="utf-8")
         for term in REQUIRED_SKILL_TERMS:
@@ -1022,7 +1154,7 @@ def main() -> int:
                 errors += 1
         errors += validate_mode_boundary(skill)
 
-    model_path = ROOT / "knowledge" / "model_language.md"
+    model_path = KNOWLEDGE / "model_language.md"
     if model_path.is_file():
         model_knowledge = model_path.read_text(encoding="utf-8")
         for term in REQUIRED_MODEL_TERMS:
@@ -1031,17 +1163,17 @@ def main() -> int:
                 errors += 1
 
     errors += require_terms(
-        ROOT / "knowledge" / "article_classification.md",
+        KNOWLEDGE / "article_classification.md",
         REQUIRED_CLASSIFICATIONS,
         "文章分类知识库",
     )
     errors += require_terms(
-        ROOT / "knowledge" / "intent_library.md",
+        KNOWLEDGE / "intent_library.md",
         REQUIRED_INTENTS,
         "写作意图知识库",
     )
     errors += require_terms(
-        ROOT / "knowledge" / "emotion_library.md",
+        KNOWLEDGE / "emotion_library.md",
         REQUIRED_EMOTIONS,
         "情绪知识库",
     )
@@ -1054,7 +1186,7 @@ def main() -> int:
     else:
         errors += validate_case_library(cases)
 
-    scoring_path = ROOT / "rules" / "quality_scoring.md"
+    scoring_path = RULES / "quality_scoring.md"
     if scoring_path.is_file():
         scoring = scoring_path.read_text(encoding="utf-8")
         for term in ("硬门槛", "10 分", "低于 9 分", "重新设计", "场景或隐喻", "评分锚点"):
@@ -1072,7 +1204,7 @@ def main() -> int:
                 fail(f"{template_name} 缺少输出标题：{heading}")
                 errors += 1
 
-    cover_prompt = extract_inline_prompt(ROOT / "examples" / "cover_example.md")
+    cover_prompt = extract_inline_prompt(EXAMPLES / "cover_example.md")
     cover_words = count_english_words(cover_prompt)
     if not ENGLISH_PROMPT_RANGE[0] <= cover_words <= ENGLISH_PROMPT_RANGE[1]:
         fail(
@@ -1084,7 +1216,7 @@ def main() -> int:
         fail("封面案例必须明确真实摄影风格与光线")
         errors += 1
 
-    content_prompt = extract_inline_prompt(ROOT / "examples" / "content_example.md")
+    content_prompt = extract_inline_prompt(EXAMPLES / "content_example.md")
     content_characters = count_chinese_characters(content_prompt)
     if not CHINESE_PROMPT_RANGE[0] <= content_characters <= CHINESE_PROMPT_RANGE[1]:
         fail(
@@ -1103,6 +1235,8 @@ def main() -> int:
     errors += validate_category_subject_routing()
     errors += validate_image_connectors()
     errors += validate_article_workflow()
+    errors += validate_plugin_structure()
+    errors += validate_release_content()
     errors += validate_public_package()
 
     if errors:
@@ -1110,16 +1244,17 @@ def main() -> int:
         return 1
 
     print(f"[OK] 结构完整：{len(REQUIRED_FILES)} 个必需文件。")
-    print("[OK] 两种运行模式、五类模型适配和统一输出结构均已声明。")
+    print("[OK] 六个 Skill 边界清晰，插件总控独占流程状态和人工门禁。")
+    print("[OK] 两种视觉模式、五类模型适配和统一输出结构均已声明。")
     print("[OK] 100 个案例编号连续、字段完整、模式与模型分布符合契约。")
-    print("[OK] SKILL.md 已接入知识路由、文章理解、质量评分和案例索引。")
+    print("[OK] 共享知识、规则、模板、案例和脚本只保留在插件根目录。")
     print("[OK] Markdown 内部链接有效。")
     print("[OK] 所有知识文件均声明何时读取。")
     print("[OK] 分类、意图与情绪条目字段完整。")
     print("[OK] 22 类主体路径完整，芯片、GPU 与政策默认不强制人物。")
     print("[OK] ThinkAI Image 2 与 ThinkAI Nano 配置、审核门和请求契约均已声明。")
     print("[OK] 文章级工作流具备规划确认、全量审核、受控并发、恢复与统一交付门禁。")
-    print("[OK] 发布包仅包含允许名单内的产品文件和本地运行数据。")
+    print("[OK] 发布包仅包含允许名单内的产品文件，不含密钥、本地状态或开发资料。")
     return 0
 
 
