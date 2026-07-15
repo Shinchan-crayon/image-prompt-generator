@@ -496,17 +496,32 @@ def mark_generation_result(
         "error": str(error or "") or None,
         "updated_at": utc_now(),
     }
-    if status in {"failed", "uncertain"}:
+    active_items = [
+        current for current in state["items"] if current["status"] == "active"
+    ]
+    blocker = next(
+        (
+            current
+            for current in active_items
+            if current["generation"]["status"] in {"failed", "uncertain"}
+        ),
+        None,
+    )
+    if blocker:
         state["phase"] = "blocked"
-        state["last_error"] = {
-            "item_id": item_id,
-            "status": status,
-            "message": str(error or ""),
-        }
+        if status in {"failed", "uncertain"}:
+            state["last_error"] = {
+                "item_id": item_id,
+                "status": status,
+                "message": str(error or ""),
+            }
+        elif not state.get("last_error"):
+            state["last_error"] = {
+                "item_id": blocker["id"],
+                "status": blocker["generation"]["status"],
+                "message": blocker["generation"]["error"] or "",
+            }
     else:
-        active_items = [
-            current for current in state["items"] if current["status"] == "active"
-        ]
         state["phase"] = (
             "complete"
             if active_items

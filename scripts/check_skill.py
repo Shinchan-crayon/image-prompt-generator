@@ -502,7 +502,11 @@ def validate_article_workflow() -> int:
             batch_path,
             (
                 "全量批准门禁",
-                "按规划顺序逐张执行",
+                "受控",
+                "--max-workers",
+                "1` 到 `8",
+                "不再提交尚未开始的项目",
+                "已经发送的并发请求无法取消",
                 "跳过所有已经成功的图片",
                 "结果不确定",
                 "不得自动",
@@ -519,6 +523,10 @@ def validate_article_workflow() -> int:
                 "verify_local",
                 "verified-local",
                 "GenerationUncertainError",
+                "ThreadPoolExecutor",
+                "as_completed",
+                "DEFAULT_MAX_WORKERS = 3",
+                "--max-workers",
                 "acquire_generation_lock",
                 "resolve_item",
                 "inspect_image",
@@ -1110,7 +1118,7 @@ def main() -> int:
     print("[OK] 分类、意图与情绪条目字段完整。")
     print("[OK] 22 类主体路径完整，芯片、GPU 与政策默认不强制人物。")
     print("[OK] ThinkAI Image 2 与 ThinkAI Nano 配置、审核门和请求契约均已声明。")
-    print("[OK] 文章级工作流具备规划确认、全量审核、顺序生成、恢复与统一交付门禁。")
+    print("[OK] 文章级工作流具备规划确认、全量审核、受控并发、恢复与统一交付门禁。")
     print("[OK] 发布包仅包含允许名单内的产品文件和本地运行数据。")
     return 0
 

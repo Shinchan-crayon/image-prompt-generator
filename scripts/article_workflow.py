@@ -2,6 +2,7 @@
 """管理整篇文章的多图规划、审核、批量生成与恢复。"""
 
 import argparse
+from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 import hashlib
 import json
 import shutil
@@ -44,6 +45,8 @@ from workflow_state import (
 
 
 SKILL_ROOT = Path(__file__).resolve().parent.parent
+DEFAULT_MAX_WORKERS = 3
+MAX_MAX_WORKERS = 8
 
 
 def resolve_run(skill_root: Path, run_id: str) -> Path:
@@ -81,7 +84,12 @@ def batch_generate(
     generator: Callable = generate_approved_image,
     config_loader: Callable = load_config,
     preflight: Callable = verify_local,
+    max_workers: int = DEFAULT_MAX_WORKERS,
 ) -> dict:
+    if not 1 <= max_workers <= MAX_MAX_WORKERS:
+        raise WorkflowError(
+            f"并发数必须在 1 到 {MAX_MAX_WORKERS} 之间。"
+        )
     run_dir = Path(run_dir)
     lock_descriptor = acquire_generation_lock(run_dir)
     try:
@@ -92,6 +100,7 @@ def batch_generate(
             generator,
             config_loader,
             preflight,
+            max_workers,
         )
     finally:
         release_generation_lock(lock_descriptor)
@@ -104,6 +113,7 @@ def _batch_generate_locked(
     generator: Callable = generate_approved_image,
     config_loader: Callable = load_config,
     preflight: Callable = verify_local,
+    max_workers: int = DEFAULT_MAX_WORKERS,
 ) -> dict:
     if not execute:
         raise WorkflowError("批量生图必须显式传入 --execute。")
@@ -122,23 +132,22 @@ def _batch_generate_locked(
         for item in sorted(state["items"], key=lambda value: value["order"])
         if item["status"] == "active"
     ]
-    interrupted_item = next(
-        (
-            item
-            for item in active_items
-            if item["generation"]["status"] == "sending"
-        ),
-        None,
-    )
-    if interrupted_item:
-        mark_generation_result(
-            run_dir,
-            interrupted_item["id"],
-            status="uncertain",
-            error="上次执行在付费请求进行中中断，无法确认渠道是否已经受理。",
-        )
+    interrupted_items = [
+        item
+        for item in active_items
+        if item["generation"]["status"] == "sending"
+    ]
+    if interrupted_items:
+        for item in interrupted_items:
+            mark_generation_result(
+                run_dir,
+                item["id"],
+                status="uncertain",
+                error="上次执行在付费请求进行中中断，无法确认渠道是否已经受理。",
+            )
+        interrupted_ids = "、".join(item["id"] for item in interrupted_items)
         raise WorkflowError(
-            f"{interrupted_item['id']} 生成结果不确定，"
+            f"{interrupted_ids} 生成结果不确定，"
             "请先检查所选渠道后台。"
         )
 
@@ -158,6 +167,7 @@ def _batch_generate_locked(
     if config["model"] != settings["model"]:
         raise WorkflowError("当前渠道模型与审核版本不一致，请重新审核全部 Prompt。")
 
+    pending_jobs = []
     for item in active_items:
         if item["generation"]["status"] == "generated":
             continue
@@ -174,46 +184,99 @@ def _batch_generate_locked(
             size=size,
             quality=quality,
         )
-        mark_generation_result(run_dir, item["id"], status="sending")
-        output_dir = run_dir / "artifacts" / item["id"]
-        try:
-            result = generator(
-                skill_root=skill_root,
-                provider=config["provider"],
-                prompt=prompt_data["prompt"],
-                approval_hash=digest,
-                size=item["size"] or None,
-                quality=settings["quality"],
-                output_dir=output_dir,
-                allowed_output_root=run_dir / "artifacts",
-            )
-        except GenerationUncertainError as exc:
-            mark_generation_result(
-                run_dir,
-                item["id"],
-                status="uncertain",
-                error=str(exc),
-            )
-            raise WorkflowError(
-                f"{item['id']} 生成结果不确定，批次已停止。"
-            ) from exc
-        except Exception as exc:
-            mark_generation_result(
-                run_dir,
-                item["id"],
-                status="failed",
-                error=str(exc),
-            )
-            raise WorkflowError(
-                f"{item['id']} 生成失败，批次已停止：{exc}"
-            ) from exc
-
-        mark_generation_result(
-            run_dir,
-            item["id"],
-            status="generated",
-            result=_relative_result(run_dir, result),
+        pending_jobs.append(
+            {
+                "item": item,
+                "prompt": prompt_data["prompt"],
+                "approval_hash": digest,
+                "output_dir": run_dir / "artifacts" / item["id"],
+            }
         )
+
+    if not pending_jobs:
+        return load_state(run_dir)
+
+    def run_job(job: dict) -> dict:
+        return generator(
+            skill_root=skill_root,
+            provider=config["provider"],
+            prompt=job["prompt"],
+            approval_hash=job["approval_hash"],
+            size=job["item"]["size"] or None,
+            quality=settings["quality"],
+            output_dir=job["output_dir"],
+            allowed_output_root=run_dir / "artifacts",
+        )
+
+    next_job_index = 0
+    futures: dict[Future, dict] = {}
+    failures = []
+
+    with ThreadPoolExecutor(
+        max_workers=min(max_workers, len(pending_jobs)),
+        thread_name_prefix="image-prompt-generator",
+    ) as executor:
+        def submit_next() -> bool:
+            nonlocal next_job_index
+            if next_job_index >= len(pending_jobs):
+                return False
+            job = pending_jobs[next_job_index]
+            next_job_index += 1
+            mark_generation_result(
+                run_dir,
+                job["item"]["id"],
+                status="sending",
+            )
+            future = executor.submit(run_job, job)
+            futures[future] = job
+            return True
+
+        for _ in range(min(max_workers, len(pending_jobs))):
+            submit_next()
+
+        while futures:
+            future = next(as_completed(tuple(futures)))
+            job = futures.pop(future)
+            item_id = job["item"]["id"]
+            try:
+                result = future.result()
+            except GenerationUncertainError as exc:
+                mark_generation_result(
+                    run_dir,
+                    item_id,
+                    status="uncertain",
+                    error=str(exc),
+                )
+                failures.append(
+                    WorkflowError(
+                        f"{item_id} 生成结果不确定，批次已停止。"
+                    )
+                )
+            except Exception as exc:
+                mark_generation_result(
+                    run_dir,
+                    item_id,
+                    status="failed",
+                    error=str(exc),
+                )
+                failures.append(
+                    WorkflowError(
+                        f"{item_id} 生成失败，批次已停止：{exc}"
+                    )
+                )
+            else:
+                mark_generation_result(
+                    run_dir,
+                    item_id,
+                    status="generated",
+                    result=_relative_result(run_dir, result),
+                )
+
+            if not failures:
+                submit_next()
+
+    if failures:
+        raise failures[0]
 
     return load_state(run_dir)
 
@@ -255,12 +318,29 @@ def retry_item(
         "error": None,
         "updated_at": None,
     }
-    state["last_error"] = None
-    state["phase"] = (
-        "ready"
-        if all_active_prompts_approved(state)
-        else "prompt_review"
+    remaining_blocker = next(
+        (
+            current
+            for current in state["items"]
+            if current["status"] == "active"
+            and current["generation"]["status"] in {"failed", "uncertain"}
+        ),
+        None,
     )
+    if remaining_blocker:
+        state["phase"] = "blocked"
+        state["last_error"] = {
+            "item_id": remaining_blocker["id"],
+            "status": remaining_blocker["generation"]["status"],
+            "message": remaining_blocker["generation"]["error"] or "",
+        }
+    else:
+        state["last_error"] = None
+        state["phase"] = (
+            "ready"
+            if all_active_prompts_approved(state)
+            else "prompt_review"
+        )
     return save_state(run_dir, state)
 
 
@@ -429,6 +509,15 @@ def build_parser() -> argparse.ArgumentParser:
             command_parser.add_argument("--approved", action="store_true", required=True)
         elif command == "generate":
             command_parser.add_argument("--execute", action="store_true", required=True)
+            command_parser.add_argument(
+                "--max-workers",
+                type=int,
+                default=DEFAULT_MAX_WORKERS,
+                help=(
+                    "批次内部最大并发请求数，"
+                    f"默认 {DEFAULT_MAX_WORKERS}，范围 1-{MAX_MAX_WORKERS}"
+                ),
+            )
 
     prompt_parser = subparsers.add_parser("set-prompt")
     prompt_parser.add_argument("--run", required=True)
@@ -513,6 +602,7 @@ def main() -> int:
                     SKILL_ROOT,
                     run_dir,
                     args.execute,
+                    max_workers=args.max_workers,
                 )
             elif args.command == "deliver":
                 result = build_delivery(run_dir)
