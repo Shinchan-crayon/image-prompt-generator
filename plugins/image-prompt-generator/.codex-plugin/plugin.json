@@ -1,0 +1,39 @@
+{
+  "name": "image-prompt-generator",
+  "version": "2.0.0",
+  "description": "将科技文章转化为专业封面与正文配图 Prompt，并在审核后通过可选图片渠道生成图片。",
+  "author": {
+    "name": "Shinchan-crayon",
+    "url": "https://github.com/Shinchan-crayon"
+  },
+  "homepage": "https://github.com/Shinchan-crayon/image-prompt-generator",
+  "repository": "https://github.com/Shinchan-crayon/image-prompt-generator",
+  "keywords": [
+    "image-prompt",
+    "editorial-design",
+    "article-illustration",
+    "ai-image"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Image Prompt Generator",
+    "shortDescription": "把文章转化为专业封面与正文配图 Prompt",
+    "longDescription": "面向科技新闻、AI 行业分析、产品评测、商业洞察与教程内容的视觉工作流。先理解文章和提炼单一观点，再完成视觉策略、构图与模型语言适配；支持整篇文章多图规划、逐图审核，以及审核通过后的多渠道受控生图。",
+    "developerName": "Shinchan-crayon",
+    "category": "Creativity",
+    "capabilities": [
+      "Interactive",
+      "Read",
+      "Write"
+    ],
+    "websiteURL": "https://github.com/Shinchan-crayon/image-prompt-generator",
+    "defaultPrompt": [
+      "为这篇文章设计一张 16:9 科技媒体封面 Prompt，先展示给我审核。",
+      "为这个章节生成一张解释型正文配图 Prompt，目标模型使用 Seedream。",
+      "为整篇文章规划封面和正文配图，全部 Prompt 审核通过后再统一生图。"
+    ],
+    "brandColor": "#FF3B30",
+    "composerIcon": "./assets/icon.png",
+    "logo": "./assets/logo.png"
+  }
+}

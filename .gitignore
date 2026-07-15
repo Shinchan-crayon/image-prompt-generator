@@ -1,5 +1,6 @@
-config.json
-generated/
-runs/
-__pycache__/
-*.pyc
+.DS_Store
+**/__pycache__/
+**/*.pyc
+plugins/image-prompt-generator/skills/image-prompt-generator/config.json
+plugins/image-prompt-generator/skills/image-prompt-generator/generated/
+plugins/image-prompt-generator/skills/image-prompt-generator/runs/
