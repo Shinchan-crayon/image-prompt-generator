@@ -9,6 +9,7 @@ import sys
 
 
 ROOT = Path(__file__).resolve().parents[1]
+REPOSITORY_ROOT = ROOT.parents[1]
 REFERENCES = ROOT / "references"
 KNOWLEDGE = REFERENCES / "knowledge"
 RULES = REFERENCES / "rules"
@@ -103,6 +104,16 @@ for skill_name in EXPECTED_SKILLS:
     )
 
 ALLOWED_RELEASE_FILES = set(REQUIRED_FILES) | {"scripts/check_skill.py"}
+ALLOWED_REPOSITORY_FILES = {
+    ".agents/plugins/marketplace.json",
+    ".gitignore",
+    "README.md",
+}
+ALLOWED_REPOSITORY_DIRECTORIES = {
+    ".agents",
+    ".agents/plugins",
+    "plugins",
+}
 ALLOWED_RELEASE_DIRECTORIES = {
     ".codex-plugin",
     "assets",
@@ -995,6 +1006,35 @@ def validate_public_package() -> int:
     return errors
 
 
+def validate_public_repository() -> int:
+    marketplace_path = REPOSITORY_ROOT / ".agents" / "plugins" / "marketplace.json"
+    expected_plugin_root = REPOSITORY_ROOT / "plugins" / ROOT.name
+    if not marketplace_path.is_file() or expected_plugin_root.resolve() != ROOT.resolve():
+        return 0
+
+    errors = 0
+    for path in sorted(REPOSITORY_ROOT.rglob("*")):
+        relative_path = path.relative_to(REPOSITORY_ROOT)
+        relative = relative_path.as_posix()
+
+        if relative_path.parts[0] == ".git":
+            continue
+        if path == ROOT or ROOT in path.parents:
+            continue
+
+        if path.is_dir():
+            if relative not in ALLOWED_REPOSITORY_DIRECTORIES:
+                fail(f"公开仓库包含未授权目录：{relative}")
+                errors += 1
+            continue
+
+        if relative not in ALLOWED_REPOSITORY_FILES:
+            fail(f"公开仓库包含未授权文件：{relative}")
+            errors += 1
+
+    return errors
+
+
 def read_frontmatter(path: Path) -> dict[str, str]:
     text = path.read_text(encoding="utf-8")
     match = re.match(r"^---\n(.*?)\n---", text, flags=re.DOTALL)
@@ -1238,6 +1278,7 @@ def main() -> int:
     errors += validate_plugin_structure()
     errors += validate_release_content()
     errors += validate_public_package()
+    errors += validate_public_repository()
 
     if errors:
         print(f"\n检查失败：{errors} 个问题。")
@@ -1254,7 +1295,7 @@ def main() -> int:
     print("[OK] 22 类主体路径完整，芯片、GPU 与政策默认不强制人物。")
     print("[OK] ThinkAI Image 2 与 ThinkAI Nano 配置、审核门和请求契约均已声明。")
     print("[OK] 文章级工作流具备规划确认、全量审核、受控并发、恢复与统一交付门禁。")
-    print("[OK] 发布包仅包含允许名单内的产品文件，不含密钥、本地状态或开发资料。")
+    print("[OK] 公开仓库和发布包仅包含允许名单内的产品文件，不含密钥、本地状态或开发资料。")
     return 0
 
 
