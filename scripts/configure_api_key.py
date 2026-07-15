@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""为当前 Skill 保存 ThinkAI API Key。"""
+"""为当前 Skill 保存默认 ThinkAI Image 2 API Key。"""
 
 import argparse
 import getpass
@@ -13,11 +13,18 @@ DEFAULT_MODEL = "gpt-image-2"
 
 
 def save_config(skill_root: Path, api_key: str) -> Path:
-    return save_formal_provider_config(skill_root, "thinkai", api_key, "recommended")
+    return save_formal_provider_config(
+        skill_root,
+        "thinkai-image2",
+        api_key,
+        "recommended",
+    )
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="配置当前 Image Prompt Generator 的 ThinkAI API Key。")
+    parser = argparse.ArgumentParser(
+        description="配置当前 Image Prompt Generator 的 ThinkAI Image 2 API Key。"
+    )
     parser.add_argument(
         "--api-key-stdin",
         action="store_true",
@@ -29,14 +36,14 @@ def main() -> int:
     api_key = (
         sys.stdin.readline().rstrip("\r\n")
         if args.api_key_stdin
-        else getpass.getpass("ThinkAI API Key: ")
+        else getpass.getpass("ThinkAI Image 2 API Key: ")
     )
     try:
         config_path = save_config(skill_root, api_key)
     except ValueError as exc:
         parser.error(str(exc))
 
-    print(f"ThinkAI 配置已保存：{config_path}")
+    print(f"ThinkAI Image 2 配置已保存：{config_path}")
     return 0
 
 

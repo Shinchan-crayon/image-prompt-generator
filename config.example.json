@@ -2,8 +2,12 @@
   "base_url": "https://www.thinkai.tv/v1",
   "model": "gpt-image-2",
   "api_key": "",
-  "default_provider": "thinkai",
+  "default_provider": "thinkai-image2",
   "providers": {
+    "thinkai-nano": {
+      "api_key": "",
+      "model_alias": "recommended"
+    },
     "volcengine": {
       "api_key": "",
       "model_alias": "recommended"

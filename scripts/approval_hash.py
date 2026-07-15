@@ -47,7 +47,7 @@ def main() -> int:
     )
     parser.add_argument(
         "--provider",
-        default="thinkai",
+        default="thinkai-image2",
         help="图片生成渠道 ID；自定义渠道使用已保存的 custom-* ID",
     )
     parser.add_argument("--prompt", required=True, help="已展示给用户的精确 Prompt")

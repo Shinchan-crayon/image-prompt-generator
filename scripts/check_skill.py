@@ -58,6 +58,7 @@ REQUIRED_FILES = [
     "scripts/providers/__init__.py",
     "scripts/providers/base.py",
     "scripts/providers/thinkai.py",
+    "scripts/providers/thinkai_nano.py",
     "scripts/providers/volcengine.py",
     "scripts/providers/openai_image.py",
     "scripts/providers/google_image.py",
@@ -103,6 +104,7 @@ REQUIRED_SKILL_TERMS = [
     "案例索引",
     "用户审核",
     "ThinkAI",
+    "ThinkAI Nano",
     "火山引擎",
     "OpenAI",
     "Google",
@@ -555,7 +557,8 @@ def validate_image_connectors() -> int:
     preflight_path = ROOT / "scripts" / "provider_preflight.py"
     generate_path = ROOT / "scripts" / "generate_image.py"
     provider_paths = {
-        "thinkai": ROOT / "scripts" / "providers" / "thinkai.py",
+        "thinkai-image2": ROOT / "scripts" / "providers" / "thinkai.py",
+        "thinkai-nano": ROOT / "scripts" / "providers" / "thinkai_nano.py",
         "volcengine": ROOT / "scripts" / "providers" / "volcengine.py",
         "openai": ROOT / "scripts" / "providers" / "openai_image.py",
         "google": ROOT / "scripts" / "providers" / "google_image.py",
@@ -596,15 +599,20 @@ def validate_image_connectors() -> int:
             if config_example.get("model") != "gpt-image-2":
                 fail("config.example.json 未保留 ThinkAI 旧版模型")
                 errors += 1
-            if config_example.get("default_provider") != "thinkai":
-                fail("config.example.json 默认渠道必须是 thinkai")
+            if config_example.get("default_provider") != "thinkai-image2":
+                fail("config.example.json 默认渠道必须是 thinkai-image2")
                 errors += 1
             providers = config_example.get("providers")
             if not isinstance(providers, dict):
                 fail("config.example.json 缺少 providers")
                 errors += 1
             else:
-                for provider_id in ("volcengine", "openai", "google"):
+                for provider_id in (
+                    "thinkai-nano",
+                    "volcengine",
+                    "openai",
+                    "google",
+                ):
                     value = providers.get(provider_id)
                     if not isinstance(value, dict):
                         fail(f"config.example.json 缺少正式渠道：{provider_id}")
@@ -621,18 +629,27 @@ def validate_image_connectors() -> int:
             errors += 1
         else:
             expected_choices = [
-                "thinkai",
+                "thinkai-image2",
+                "thinkai-nano",
                 "volcengine",
                 "openai",
                 "google",
                 "custom",
             ]
             if registry.get("choices") != expected_choices:
-                fail("图片渠道菜单必须严格为五项且顺序固定")
+                fail("图片渠道菜单必须严格为六项且顺序固定")
                 errors += 1
             providers = registry.get("providers")
-            if not isinstance(providers, dict) or list(providers) != expected_choices[:4]:
+            if not isinstance(providers, dict) or list(providers) != expected_choices[:5]:
                 fail("正式图片渠道注册表集合无效")
+                errors += 1
+            elif (
+                providers.get("thinkai-nano", {})
+                .get("models", {})
+                .get("recommended")
+                != "nano-banana-2"
+            ):
+                fail("ThinkAI Nano 推荐模型必须由注册表固定为 nano-banana-2")
                 errors += 1
             if re.search(r'"api_key"\s*:\s*"[^"]+"', registry_path.read_text(encoding="utf-8")):
                 fail("图片渠道注册表不得包含 API Key")
@@ -642,7 +659,7 @@ def validate_image_connectors() -> int:
         configure_script = configure_path.read_text(encoding="utf-8")
         for term in (
             "save_formal_provider_config",
-            '"thinkai"',
+            '"thinkai-image2"',
             "--api-key-stdin",
             "getpass.getpass",
         ):
@@ -656,7 +673,8 @@ def validate_image_connectors() -> int:
     if configure_provider_path.is_file():
         configure_provider = configure_provider_path.read_text(encoding="utf-8")
         for term in (
-            "thinkai",
+            "thinkai-image2",
+            "thinkai-nano",
             "volcengine",
             "openai",
             "google",
@@ -674,7 +692,7 @@ def validate_image_connectors() -> int:
         if re.search(r'add_argument\(\s*["\']--api-key["\']', configure_provider):
             fail("configure_provider.py 不得通过命令参数接收 API Key")
             errors += 1
-        for term in ("config.setdefault(\"default_provider\", \"thinkai\")", '"status": "configured"'):
+        for term in ("DEFAULT_PROVIDER = \"thinkai-image2\"", '"status": "configured"'):
             if term not in configure_provider:
                 fail(f"configure_provider.py 缺少默认兼容契约：{term}")
                 errors += 1
@@ -714,7 +732,7 @@ def validate_image_connectors() -> int:
             "--approved",
             "--approval-hash",
             "--provider",
-            'default="thinkai"',
+            'default="thinkai-image2"',
             "approval_digest",
             "compare_digest",
             "request.json",
@@ -743,7 +761,17 @@ def validate_image_connectors() -> int:
             errors += 1
 
     adapter_terms = {
-        "thinkai": ("1920x1088", "2560x1440", '"response_format": "url"'),
+        "thinkai-image2": (
+            "1920x1088",
+            "2560x1440",
+            '"response_format": "url"',
+        ),
+        "thinkai-nano": (
+            "resolve_model",
+            ":generateContent",
+            "x-goog-api-key",
+            "inlineData",
+        ),
         "volcengine": ('"watermark": False', "b64_json", "resolve_model"),
         "openai": ("/images/generations", "b64_json", "SUPPORTED_QUALITIES"),
         "google": ("/interactions", "x-goog-api-key", "model_output"),
@@ -775,6 +803,7 @@ def validate_image_connectors() -> int:
             "scripts/provider_preflight.py",
             "scripts/approval_hash.py",
             "Google Nano Banana",
+            "ThinkAI Nano",
             "其他",
         ):
             if term not in workflow:
@@ -938,7 +967,7 @@ def main() -> int:
     print("[OK] 所有知识文件均声明何时读取。")
     print("[OK] 分类、意图与情绪条目字段完整。")
     print("[OK] 22 类主体路径完整，芯片、GPU 与政策默认不强制人物。")
-    print("[OK] ThinkAI 独立配置、审核门、请求契约和产物留档均已声明。")
+    print("[OK] ThinkAI Image 2 与 ThinkAI Nano 配置、审核门和请求契约均已声明。")
     print("[OK] 发布包仅包含允许名单内的产品文件和本地运行数据。")
     return 0
 

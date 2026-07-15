@@ -6,7 +6,12 @@ import json
 import sys
 from pathlib import Path
 
-from provider_registry import FORMAL_PROVIDER_IDS, get_provider, list_provider_choices
+from provider_registry import (
+    FORMAL_PROVIDER_IDS,
+    get_provider,
+    list_provider_choices,
+    normalize_provider_id,
+)
 from providers import get_adapter
 
 
@@ -24,7 +29,7 @@ def read_config(skill_root: Path) -> dict:
 
 
 def is_configured(raw_config: dict, provider_id: str) -> bool:
-    if provider_id == "thinkai":
+    if normalize_provider_id(provider_id) == "thinkai-image2":
         return bool(str(raw_config.get("api_key") or "").strip())
     providers = raw_config.get("providers")
     return (
@@ -35,7 +40,7 @@ def is_configured(raw_config: dict, provider_id: str) -> bool:
 
 
 def load_provider_config(raw_config: dict, provider_id: str) -> tuple[dict, object, dict]:
-    normalized = provider_id.strip().lower()
+    normalized = normalize_provider_id(provider_id)
     if normalized in FORMAL_PROVIDER_IDS:
         spec = get_provider(normalized)
         adapter = get_adapter(normalized)
@@ -56,7 +61,11 @@ def verify_local(skill_root: Path, provider_id: str) -> dict:
     quality = (
         "high"
         if config["provider"] == "openai"
-        else ("" if config["provider"] in {"volcengine", "google"} else "hd")
+        else (
+            ""
+            if config["provider"] in {"thinkai-nano", "volcengine", "google"}
+            else "hd"
+        )
     )
     request = adapter.build_request(config, "本地配置检查", size, quality)
 
@@ -100,7 +109,7 @@ def list_status(skill_root: Path) -> dict:
                 }
             )
     return {
-        "default_provider": "thinkai",
+        "default_provider": "thinkai-image2",
         "network_request_sent": False,
         "choices": choices,
     }

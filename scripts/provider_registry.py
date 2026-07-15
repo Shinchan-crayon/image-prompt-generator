@@ -9,8 +9,22 @@ from urllib.parse import urlparse
 
 SKILL_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_REGISTRY_PATH = SKILL_ROOT / "data" / "image_providers.json"
-FORMAL_PROVIDER_IDS = ("thinkai", "volcengine", "openai", "google")
+FORMAL_PROVIDER_IDS = (
+    "thinkai-image2",
+    "thinkai-nano",
+    "volcengine",
+    "openai",
+    "google",
+)
 USER_CHOICE_IDS = (*FORMAL_PROVIDER_IDS, "custom")
+LEGACY_PROVIDER_ALIASES = {
+    "thinkai": "thinkai-image2",
+}
+
+
+def normalize_provider_id(provider_id: str) -> str:
+    normalized = str(provider_id or "").strip().lower()
+    return LEGACY_PROVIDER_ALIASES.get(normalized, normalized)
 
 
 def _require_text(value, label: str) -> str:
@@ -39,7 +53,10 @@ def load_registry(path: Optional[Path] = None) -> dict:
 
     choices = registry.get("choices")
     if choices != list(USER_CHOICE_IDS):
-        raise ValueError("图片渠道菜单必须依次为 ThinkAI、火山引擎、OpenAI、Google、其他。")
+        raise ValueError(
+            "图片渠道菜单必须依次为 ThinkAI Image 2、ThinkAI Nano、"
+            "火山引擎、OpenAI、Google、其他。"
+        )
 
     providers = registry.get("providers")
     if not isinstance(providers, dict) or tuple(providers) != FORMAL_PROVIDER_IDS:
@@ -86,7 +103,7 @@ def list_provider_choices(path: Optional[Path] = None) -> list:
 
 
 def get_provider(provider_id: str, path: Optional[Path] = None) -> dict:
-    normalized = str(provider_id or "").strip().lower()
+    normalized = normalize_provider_id(provider_id)
     registry = load_registry(path)
     provider = registry["providers"].get(normalized)
     if not isinstance(provider, dict):

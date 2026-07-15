@@ -115,15 +115,16 @@ description: Use when converting technology news, AI industry analysis, product 
    - 所有解释、分析结论和规则使用中文。
    - 最终 Prompt 语言由目标模型决定。
    - 严格使用对应模板，只展示通过质量门的最终方案，不展示失败草稿或隐藏推理。
-   - 在模板后询问：`Prompt 已展示，请审核。是否批准生成图片？未指定渠道时默认使用 ThinkAI。`
+   - 在模板后询问：`Prompt 已展示，请审核。是否批准生成图片？未指定渠道时默认使用 ThinkAI Image 2。`
    - 用户已选定渠道时，在问题中明确渠道、模型和尺寸。
    - 输出后停止。用户在看到本次最终 Prompt 前给出的“直接生成”不算审核通过。
 11. **可选生图执行**
    - 仅当用户在看到最终 Prompt 后明确回复“批准”“通过”“可以生成”等同意语句时执行。
    - 执行前读取 `rules/generation_workflow.md`，检查本 Skill 自己的 `config.json`。
    - 不得读取或复用其他 Skill 的配置、API Key 或脚本。
-   - 未指定渠道时使用 ThinkAI。用户需要选择时，依次提供 ThinkAI、火山引擎 Seedream、
-     OpenAI GPT Image、Google Nano Banana、其他五个选项。
+   - 未指定渠道时使用 ThinkAI Image 2。用户需要选择时，依次提供 ThinkAI Image 2、
+     ThinkAI Nano、火山引擎 Seedream、OpenAI GPT Image、Google Nano Banana、其他
+     六个选项。
    - 正式渠道未配置时，只让用户选择渠道并通过隐藏输入提供 API Key；地址、推荐模型与
      默认尺寸由 `data/image_providers.json` 管理。
    - “其他”渠道先读取官方图片 API 文档；只有能映射到受控同步协议时才由 Agent 准备
@@ -147,8 +148,10 @@ description: Use when converting technology news, AI industry analysis, product 
 - 不用 Logo、机器人、代码雨、AI 人脸、HUD、粒子或赛博朋克替代观点。
 - Negative Prompt 是针对当前方案的约束清单；即使模型不原生支持，也不得虚构模型参数。
 - 用户审核前禁止调用任何图片渠道；含糊答复、沉默、预先授权或仅要求“继续”都不算批准。
-- ThinkAI 当前固定使用 `gpt-image-2`，支持 `1k` 与 `2k`；实际计费以 ThinkAI 后台为准。
-- 火山引擎、OpenAI、Google 与其他渠道只在用户显式选择时使用。
+- ThinkAI Image 2 固定使用 `gpt-image-2`，支持 `1k` 与 `2k`。
+- ThinkAI Nano 固定使用 `nano-banana-2`，支持 `1K`、`2K`、`4K` 与画面比例。
+- ThinkAI Nano、火山引擎、OpenAI、Google 与其他渠道只在用户显式选择时使用。
+- 实际计费以所选渠道后台为准。
 - Seedance 属于视频生成，不得作为本 Skill 的图片渠道。
 
 ## 图片渠道配置
@@ -164,7 +167,7 @@ python3 scripts/configure_api_key.py
 配置脚本默认使用隐藏输入。自动化环境可把 Key 通过标准输入传给
 `python3 scripts/configure_api_key.py --api-key-stdin`，禁止把 Key 放入命令参数。
 
-ThinkAI 保持默认渠道。五种渠道的配置与执行方式见
+ThinkAI Image 2 保持默认渠道。六种渠道入口的配置与执行方式见
 `knowledge/image_providers.md` 与 `rules/generation_workflow.md`。配置只写入当前 Skill
 根目录的 `config.json`，使用临时文件原子替换并设为 `0600`。
 图片与请求记录默认写入 `generated/<时间戳>/`。`config.json` 与 `generated/` 均不得提交

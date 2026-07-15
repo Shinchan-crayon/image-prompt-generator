@@ -13,13 +13,13 @@ from provider_registry import (
     FORMAL_PROVIDER_IDS,
     get_provider,
     list_provider_choices,
+    normalize_provider_id,
     resolve_model,
 )
 
 
-THINKAI_BASE_URL = "https://www.thinkai.tv/v1"
-THINKAI_MODEL = "gpt-image-2"
 CUSTOM_PROFILES = ("openai-image-compatible", "generic-sync-json-image")
+DEFAULT_PROVIDER = "thinkai-image2"
 
 
 def read_existing_config(config_path: Path) -> dict:
@@ -73,7 +73,7 @@ def save_formal_provider_config(
     api_key: str,
     model_alias: str = "recommended",
 ) -> Path:
-    provider_id = str(provider or "").strip().lower()
+    provider_id = normalize_provider_id(provider)
     if provider_id not in FORMAL_PROVIDER_IDS:
         raise ValueError(f"不支持的正式图片渠道：{provider}")
     spec = get_provider(provider_id)
@@ -84,11 +84,11 @@ def save_formal_provider_config(
     skill_root.mkdir(parents=True, exist_ok=True)
     config_path = skill_root / "config.json"
     config = read_existing_config(config_path)
-    if provider_id == "thinkai":
+    if provider_id == "thinkai-image2":
         config.update(
             {
                 "base_url": spec["base_url"],
-                "model": resolve_model("thinkai", alias),
+                "model": resolve_model("thinkai-image2", alias),
                 "api_key": normalized_key,
             }
         )
@@ -101,7 +101,8 @@ def save_formal_provider_config(
             "api_key": normalized_key,
             "model_alias": alias,
         }
-    config.setdefault("default_provider", "thinkai")
+    if config.get("default_provider") in {None, "", "thinkai"}:
+        config["default_provider"] = DEFAULT_PROVIDER
     atomic_write(config_path, config)
     return config_path
 
@@ -172,7 +173,8 @@ def save_custom_provider_config(
         "response_path": normalized_response_path,
         "response_type": normalized_response_type,
     }
-    config.setdefault("default_provider", "thinkai")
+    if config.get("default_provider") in {None, "", "thinkai"}:
+        config["default_provider"] = DEFAULT_PROVIDER
     atomic_write(config_path, config)
     return config_path
 
@@ -196,7 +198,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "provider",
         nargs="?",
-        help="thinkai、volcengine、openai、google 或 custom",
+        help=(
+            "thinkai-image2、thinkai-nano、volcengine、openai、google "
+            "或 custom；thinkai 作为旧别名继续可用"
+        ),
     )
     parser.add_argument("--list", action="store_true", help="列出支持的图片渠道")
     parser.add_argument("--model-alias", default="recommended", help="模型档位")
@@ -230,7 +235,7 @@ def main() -> int:
         print_choices()
         return 0
 
-    provider_id = args.provider.strip().lower()
+    provider_id = normalize_provider_id(args.provider)
     skill_root = Path(__file__).resolve().parent.parent
     try:
         if provider_id in FORMAL_PROVIDER_IDS:
@@ -249,7 +254,7 @@ def main() -> int:
                 "model_alias": args.model_alias,
                 "model": resolve_model(provider_id, args.model_alias),
                 "config_path": str(path),
-                "default_provider": "thinkai",
+                "default_provider": DEFAULT_PROVIDER,
             }
         elif provider_id == "custom":
             if not args.profile or not args.endpoint or not args.model:
@@ -274,7 +279,7 @@ def main() -> int:
                 "provider_name": args.name,
                 "profile": args.profile,
                 "config_path": str(path),
-                "default_provider": "thinkai",
+                "default_provider": DEFAULT_PROVIDER,
             }
         else:
             parser.error(f"不支持的图片渠道：{args.provider}")

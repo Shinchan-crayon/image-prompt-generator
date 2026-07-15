@@ -32,7 +32,11 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
-from provider_registry import FORMAL_PROVIDER_IDS, get_provider
+from provider_registry import (
+    FORMAL_PROVIDER_IDS,
+    get_provider,
+    normalize_provider_id,
+)
 from providers import get_adapter
 
 
@@ -69,9 +73,9 @@ def load_raw_config(skill_root: Path) -> dict:
     return config
 
 
-def load_config(skill_root: Path, provider: str = "thinkai") -> dict:
+def load_config(skill_root: Path, provider: str = "thinkai-image2") -> dict:
     config = load_raw_config(skill_root)
-    normalized_provider = provider.strip().lower()
+    normalized_provider = normalize_provider_id(provider)
     if normalized_provider in FORMAL_PROVIDER_IDS:
         spec = get_provider(normalized_provider)
         return get_adapter(normalized_provider).load_config(config, spec)
@@ -87,7 +91,7 @@ def resolve_size(raw_size: str) -> str:
 
 
 def resolve_provider_size(provider: str, raw_size: Optional[str]) -> str:
-    normalized_provider = provider.strip().lower()
+    normalized_provider = normalize_provider_id(provider)
     if normalized_provider in FORMAL_PROVIDER_IDS:
         spec = get_provider(normalized_provider)
         return get_adapter(normalized_provider).normalize_size(raw_size, spec)
@@ -95,20 +99,22 @@ def resolve_provider_size(provider: str, raw_size: Optional[str]) -> str:
 
 
 def resolve_provider_quality(provider: str, raw_quality: Optional[str]) -> str:
-    normalized_provider = provider.strip().lower()
+    normalized_provider = normalize_provider_id(provider)
     quality = str(raw_quality or "").strip().lower()
     if normalized_provider == "volcengine":
         return ""
     if normalized_provider == "google":
+        return ""
+    if normalized_provider == "thinkai-nano":
         return ""
     if normalized_provider == "openai":
         quality = "high" if quality == "hd" else quality
         if quality not in {"low", "medium", "high", "auto"}:
             raise ValueError(f"OpenAI 不支持图片质量：{raw_quality}。")
         return quality
-    if normalized_provider == "thinkai":
+    if normalized_provider == "thinkai-image2":
         if quality not in {"standard", "hd"}:
-            raise ValueError(f"ThinkAI 不支持图片质量：{raw_quality}。")
+            raise ValueError(f"ThinkAI Image 2 不支持图片质量：{raw_quality}。")
         return quality
     return quality or "hd"
 
@@ -122,13 +128,13 @@ def validate_prompt(prompt: str) -> str:
 
 def approval_digest(
     prompt: str,
-    provider: str = "thinkai",
+    provider: str = "thinkai-image2",
     model: Optional[str] = None,
     size: Optional[str] = None,
     quality: Optional[str] = None,
 ) -> str:
     normalized_prompt = validate_prompt(prompt)
-    if provider == "thinkai":
+    if normalize_provider_id(provider) == "thinkai-image2":
         payload = normalized_prompt
     else:
         payload = json.dumps(
@@ -149,7 +155,7 @@ def approval_digest(
 def validate_approval(
     prompt: str,
     expected_digest: str,
-    provider: str = "thinkai",
+    provider: str = "thinkai-image2",
     model: Optional[str] = None,
     size: Optional[str] = None,
     quality: Optional[str] = None,
@@ -523,8 +529,8 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--provider",
-        default="thinkai",
-        help="图片生成渠道 ID（默认: thinkai）",
+        default="thinkai-image2",
+        help="图片生成渠道 ID（默认: thinkai-image2；旧别名 thinkai 可用）",
     )
     parser.add_argument("--approved", action="store_true", required=True, help="确认用户已明确批准 Prompt")
     parser.add_argument("--approval-hash", required=True, help="用户批准的精确 Prompt SHA-256")
@@ -532,7 +538,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--size",
         default=None,
-        help="尺寸；未指定时 ThinkAI 使用 1k，火山引擎使用 2K",
+        help=(
+            "尺寸；ThinkAI Image 2 可用 1k/2k，"
+            "ThinkAI Nano 使用 16:9@2K 等格式"
+        ),
     )
     parser.add_argument(
         "--quality",

@@ -1,15 +1,16 @@
 {
-  "version": 1,
+  "version": 2,
   "choices": [
-    "thinkai",
+    "thinkai-image2",
+    "thinkai-nano",
     "volcengine",
     "openai",
     "google",
     "custom"
   ],
   "providers": {
-    "thinkai": {
-      "name": "ThinkAI",
+    "thinkai-image2": {
+      "name": "ThinkAI Image 2",
       "adapter": "thinkai",
       "base_url": "https://www.thinkai.tv/v1",
       "recommended_model": "recommended",
@@ -19,7 +20,20 @@
       "default_size": "1k",
       "prompt_language": "zh-bilingual",
       "status": "supported",
-      "verified_at": "2026-07-14"
+      "verified_at": "2026-07-15"
+    },
+    "thinkai-nano": {
+      "name": "ThinkAI Nano",
+      "adapter": "thinkai_nano",
+      "base_url": "https://www.thinkai.tv/v1",
+      "recommended_model": "recommended",
+      "models": {
+        "recommended": "nano-banana-2"
+      },
+      "default_size": "1:1@1K",
+      "prompt_language": "zh-bilingual",
+      "status": "supported",
+      "verified_at": "2026-07-15"
     },
     "volcengine": {
       "name": "火山引擎 Seedream",

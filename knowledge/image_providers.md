@@ -9,13 +9,14 @@
 
 必须按以下顺序向用户展示，不增加普通用户需要理解的 URL 或模型 ID：
 
-1. ThinkAI
-2. 火山引擎 Seedream
-3. OpenAI GPT Image
-4. Google Nano Banana
-5. 其他
+1. ThinkAI Image 2
+2. ThinkAI Nano
+3. 火山引擎 Seedream
+4. OpenAI GPT Image
+5. Google Nano Banana
+6. 其他
 
-未指定渠道时使用 ThinkAI。配置任何其他渠道都不得自动改变默认渠道。
+未指定渠道时使用 ThinkAI Image 2。配置任何其他渠道都不得自动改变默认渠道。
 
 ## 配置体验
 
@@ -25,7 +26,8 @@
 python3 scripts/configure_provider.py <provider>
 ```
 
-其中 `<provider>` 为 `thinkai`、`volcengine`、`openai` 或 `google`。脚本从
+其中 `<provider>` 为 `thinkai-image2`、`thinkai-nano`、`volcengine`、`openai` 或
+`google`。旧 ID `thinkai` 会映射到 `thinkai-image2`。脚本从
 `data/image_providers.json` 读取固定 API 地址、推荐模型、默认尺寸和适配器，不要求普通
 用户手工填写 URL 或模型 ID。API Key 使用隐藏输入；自动化环境只能通过标准输入传入。
 
@@ -42,7 +44,8 @@ python3 scripts/provider_preflight.py --provider <provider>
 
 | ID | 用户名称 | Prompt 语言 | 默认行为 |
 |---|---|---|---|
-| `thinkai` | ThinkAI | 中文或中英混合 | 默认渠道，保留旧平铺配置与旧审核哈希 |
+| `thinkai-image2` | ThinkAI Image 2 | 中文或中英混合 | 默认渠道，保留旧平铺配置、旧 ID 与旧审核哈希 |
+| `thinkai-nano` | ThinkAI Nano | 中文或中英混合 | `nano-banana-2`，比例与 1K/2K/4K 尺寸绑定审核 |
 | `volcengine` | 火山引擎 Seedream | 中文或中英混合 | 使用注册表推荐 Seedream 模型 |
 | `openai` | OpenAI GPT Image | 中文或中英混合 | 使用 OpenAI Image API |
 | `google` | Google Nano Banana | 中文或中英混合 | 使用 Google 图片生成接口 |
@@ -87,7 +90,7 @@ Seedance 是视频生成模型，不属于本 Skill 的图片生成渠道。
 
 ## 审核绑定
 
-ThinkAI 为兼容旧流程，审核哈希只绑定精确 Prompt。其他渠道的审核哈希绑定：
+ThinkAI Image 2 为兼容旧流程，审核哈希只绑定精确 Prompt。其他渠道的审核哈希绑定：
 
 - 精确 Prompt
 - 渠道 ID
