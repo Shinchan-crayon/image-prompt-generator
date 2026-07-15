@@ -1,9 +1,10 @@
-# ThinkAI 审核与生图规则
+# 审核与生图规则
 
 ## 适用边界
 
-本文件只管理 Prompt 输出后的可选执行阶段。它不新增视觉模式，不改变文章理解、构图、
-风格、长度或质量评分规则。
+本文件只管理 Prompt 输出后的可选执行阶段。它不新增视觉模式，也不改变文章理解、构图、
+风格、长度或质量评分规则。渠道详情见
+[图片生成渠道](../knowledge/image_providers.md)。
 
 ## 审核门
 
@@ -17,94 +18,138 @@ Prompt 已展示，等待用户回复
 → 禁止生图
 
 用户明确批准当前 Prompt
-→ 允许检查配置并调用 ThinkAI
+→ 允许检查配置并调用所选渠道
 ```
 
-以下回复可视为批准：`批准`、`通过`、`可以生成`、`按这个生成`、语义完全等价的明确同意。
+`批准`、`通过`、`可以生成`、`按这个生成`或语义完全等价的明确答复才算批准。预先授权、
+沉默、含糊的“继续”以及看到 Prompt 前的“直接生成”都不算批准。
 
-以下情况不算批准：
+Prompt、主体、构图、比例、渠道、模型、尺寸或质量发生变化后，必须重新展示并重新批准。
 
-- 用户在看到最终 Prompt 前要求“一步完成”或“直接生成”。
-- 用户只说“继续”“看看”“试试”，但没有指向当前 Prompt。
-- 用户修改了 Prompt、比例、主体、风格或其他画面条件。
-- 当前展示的是旧 Prompt，之后已发生重新设计。
+## 渠道选择
 
-只要 Prompt 或画面条件发生变化，就必须重新展示并重新等待批准。
+用户未指定渠道时使用默认 ThinkAI。需要选择时，按固定顺序给出：
 
-批准后为用户看到的精确 Prompt 计算 SHA-256。哈希只用于检查执行版本与审核版本是否一致，
-不能替代对话中的明确批准。任何字符变化都会使旧哈希失效。
+1. ThinkAI
+2. 火山引擎 Seedream
+3. OpenAI GPT Image
+4. Google Nano Banana
+5. 其他
 
-## 固定连接器契约
+正式渠道只让用户选择渠道并安全输入 API Key，不要求普通用户填写 URL 或模型 ID。
+配置其他渠道不得改变默认 ThinkAI。
 
-- API：`POST https://www.thinkai.tv/v1/images/generations`
-- 模型：`gpt-image-2`
-- `1k`：`1920x1088`
-- `2k`：`2560x1440`
-- 默认质量：`hd`
-- 默认数量：`1`
-- 返回格式：`url`
-
-执行前告知用户：
-
-`当前使用 ThinkAI gpt-image-2，可生成 1k、2k 图片，实际计费以 ThinkAI 后台为准。`
-
-不猜测其他尺寸、模型、价格或服务能力。
+“其他”渠道由 Agent 先核对官方图片 API 文档并选择受支持协议。不能明确映射到
+`openai-image-compatible` 或 `generic-sync-json-image` 时，直接说明当前不支持，不编写
+临时代码绕过边界。
 
 ## 配置
 
-只使用当前 Skill 根目录的 `config.json`。若缺失或 `api_key` 为空，询问用户提供 API Key，
-然后运行：
+所有凭据只写入当前 Skill 根目录的 `config.json`，不得读取其他 Skill。API Key 禁止放入
+对话、命令参数、日志、快照或案例。
+
+列出渠道：
+
+```bash
+python3 scripts/configure_provider.py --list
+```
+
+配置正式渠道：
+
+```bash
+python3 scripts/configure_provider.py thinkai
+python3 scripts/configure_provider.py volcengine
+python3 scripts/configure_provider.py openai
+python3 scripts/configure_provider.py google
+```
+
+配置脚本使用隐藏输入。自动化环境只能通过标准输入：
+
+```bash
+printf '%s' "$IMAGE_API_KEY" | \
+  python3 scripts/configure_provider.py <provider> --api-key-stdin
+```
+
+保留兼容入口：
 
 ```bash
 python3 scripts/configure_api_key.py
 ```
 
-脚本默认隐藏输入。自动化环境只能通过标准输入运行：
+该入口只配置默认 ThinkAI，并保留其他渠道配置。
+
+“其他”渠道的完整命令由 Agent 根据官方文档构造，参数边界见
+`knowledge/image_providers.md`。用户仍只在隐藏输入中填写 API Key。
+
+## 本地预检
+
+配置后先运行：
 
 ```bash
-printf '%s' "$THINKAI_API_KEY" | python3 scripts/configure_api_key.py --api-key-stdin
+python3 scripts/provider_preflight.py --provider <provider>
 ```
 
-禁止读取其他 Skill 的配置文件。禁止把 API Key 放入命令参数、日志、请求快照、回复或
-案例库。配置脚本必须使用仅当前用户可读写的临时文件和原子替换。
+预检不会联网，不会发送生成 POST，也不会产生费用。只有脚本返回 `verified-local` 才能
+继续；该状态仅表示本地配置与适配器契约一致。
+
+## 审核哈希
+
+用户明确批准后，使用脚本计算，不要手工猜算：
+
+```bash
+python3 scripts/approval_hash.py \
+  --provider <provider> \
+  --prompt '<APPROVED_PROMPT>' \
+  --size '<APPROVED_SIZE>' \
+  --quality '<APPROVED_QUALITY>'
+```
+
+ThinkAI 为保持旧流程兼容，哈希只绑定精确 Prompt。其他渠道绑定 Prompt、渠道、实际模型、
+规范化尺寸和质量参数。哈希只保护版本一致性，不能代替对话中的批准。
 
 ## 执行
 
-用户批准后运行：
+默认 ThinkAI 可以省略 `--provider`：
 
 ```bash
 python3 scripts/generate_image.py \
   --approved \
-  --approval-hash '<APPROVED_PROMPT_SHA256>' \
+  --approval-hash '<APPROVAL_HASH>' \
   --prompt '<APPROVED_PROMPT>' \
   --size 1k \
   --quality hd
 ```
 
-必须原样使用用户批准的最终 Prompt。若需要修改 Prompt，回到审核阶段。
+其他渠道必须显式传入已审核的渠道 ID：
 
-安全约束：
+```bash
+python3 scripts/generate_image.py \
+  --provider <provider> \
+  --approved \
+  --approval-hash '<APPROVAL_HASH>' \
+  --prompt '<APPROVED_PROMPT>' \
+  --size '<APPROVED_SIZE>' \
+  --quality '<APPROVED_QUALITY>'
+```
 
-- `--approval-hash` 必须对应用户看到并批准的精确 Prompt。
-- ThinkAI 地址固定为 `https://www.thinkai.tv/v1`，模型固定为 `gpt-image-2`；配置被篡改
-  时停止执行。
-- 付费生成 POST 只发送一次。超时、断线、响应不完整或 HTTP 错误时不会自动重试。
-- 若生成响应结果不确定，必须告知用户服务端可能已受理并计费，并停止执行。只有用户确认
-  ThinkAI 后台没有成功任务且明确要求重新生成后，才允许再次发送 POST。
-- API Key 仅从本 Skill 权限为 `0600` 的 `config.json` 读取，不写入命令参数、日志、请求
-  快照或用户回复。
-- ThinkAI 返回内容必须是完整 JSON，并包含 `data[0].url`；结构不符合时停止执行。
-- 图片优先使用 Python URL 读取器，它可直接处理 ThinkAI 返回的
-  `data:image/png;base64,...`，也可读取普通 HTTP 图片地址。
-- HTTP 图片读取发生连接错误或数据不完整时，使用系统 `curl` 兜底。
-- 图片必须具有有效 PNG 文件头，并从 PNG 头部读取实际尺寸。
-- 输出目录固定在本 Skill 的 `generated/`，不向命令行开放任意输出路径。
+执行前告知用户当前渠道、模型、尺寸与质量，并提示实际计费以渠道后台为准。
 
-脚本成功后，以打印的 JSON 为准，向用户报告：
+## 失败处理
 
+- 生成 POST 只发送一次，不会自动重试。
+- 超时、断线、分块响应中断或结果不明确时，说明服务端可能已经受理并计费。
+- 用户必须先检查所选渠道后台；只有确认后台没有成功任务并明确要求重发后，才能再次发送。
+- URL 图片优先使用 Python URL 读取器；连接错误或数据不完整时使用系统 `curl`。
+- 超长签名 URL 必须作为一个完整参数交给 `curl`，不能拆分，也不能写进临时配置文件。
+- 响应快照移除 Base64 大字段和签名查询参数，不保存请求 Header。
+- 输出必须是可识别的 PNG、JPEG 或 WebP，并从文件头读取实际尺寸。
+
+脚本成功后以打印的 JSON 为准，报告：
+
+- 当前渠道与模型
 - 本地图片路径
 - 请求尺寸与实际尺寸
 - `request.json` 路径
 - `response.json` 路径
 
-未获得脚本成功摘要或未生成完整文件时，不得宣称生图成功。
+未获得成功摘要或未生成完整文件时，不得宣称生图成功。

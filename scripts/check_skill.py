@@ -16,6 +16,7 @@ REQUIRED_FILES = [
     "README.md",
     "agents/openai.yaml",
     "knowledge/model_language.md",
+    "knowledge/image_providers.md",
     "knowledge/article_understanding.md",
     "knowledge/article_classification.md",
     "knowledge/intent_library.md",
@@ -49,7 +50,19 @@ REQUIRED_FILES = [
     "examples/library/cases-051-075.md",
     "examples/library/cases-076-100.md",
     "scripts/configure_api_key.py",
+    "scripts/configure_provider.py",
+    "scripts/approval_hash.py",
+    "scripts/provider_preflight.py",
+    "scripts/provider_registry.py",
     "scripts/generate_image.py",
+    "scripts/providers/__init__.py",
+    "scripts/providers/base.py",
+    "scripts/providers/thinkai.py",
+    "scripts/providers/volcengine.py",
+    "scripts/providers/openai_image.py",
+    "scripts/providers/google_image.py",
+    "scripts/providers/custom.py",
+    "data/image_providers.json",
     "requirements.txt",
     "config.example.json",
     ".gitignore",
@@ -65,11 +78,13 @@ ALLOWED_RUNTIME_FILES = {
 
 ALLOWED_RELEASE_DIRECTORIES = {
     "agents",
+    "data",
     "examples",
     "examples/library",
     "knowledge",
     "rules",
     "scripts",
+    "scripts/providers",
     "templates",
 }
 
@@ -88,6 +103,10 @@ REQUIRED_SKILL_TERMS = [
     "案例索引",
     "用户审核",
     "ThinkAI",
+    "火山引擎",
+    "OpenAI",
+    "Google",
+    "其他",
     "--approved",
     "--approval-hash",
 ]
@@ -98,6 +117,7 @@ REQUIRED_SKILL_LINKS = [
     "knowledge/article_understanding.md",
     "rules/core_rules.md",
     "knowledge/model_language.md",
+    "knowledge/image_providers.md",
     "knowledge/scene_photography.md",
     "rules/quality_scoring.md",
     "rules/negative_rules.md",
@@ -523,13 +543,24 @@ def validate_category_subject_routing() -> int:
     return errors
 
 
-def validate_thinkai_connector() -> int:
+def validate_image_connectors() -> int:
     errors = 0
     requirements_path = ROOT / "requirements.txt"
     readme_path = ROOT / "README.md"
     config_example_path = ROOT / "config.example.json"
+    registry_path = ROOT / "data" / "image_providers.json"
     configure_path = ROOT / "scripts" / "configure_api_key.py"
+    configure_provider_path = ROOT / "scripts" / "configure_provider.py"
+    approval_hash_path = ROOT / "scripts" / "approval_hash.py"
+    preflight_path = ROOT / "scripts" / "provider_preflight.py"
     generate_path = ROOT / "scripts" / "generate_image.py"
+    provider_paths = {
+        "thinkai": ROOT / "scripts" / "providers" / "thinkai.py",
+        "volcengine": ROOT / "scripts" / "providers" / "volcengine.py",
+        "openai": ROOT / "scripts" / "providers" / "openai_image.py",
+        "google": ROOT / "scripts" / "providers" / "google_image.py",
+        "custom": ROOT / "scripts" / "providers" / "custom.py",
+    }
     workflow_path = ROOT / "rules" / "generation_workflow.md"
     gitignore_path = ROOT / ".gitignore"
 
@@ -559,24 +590,59 @@ def validate_thinkai_connector() -> int:
             fail(f"config.example.json 不是有效 JSON：{exc}")
             errors += 1
         else:
-            expected = {
-                "base_url": "https://www.thinkai.tv/v1",
-                "model": "gpt-image-2",
-                "api_key": "",
-            }
-            if config_example != expected:
-                fail(f"ThinkAI 配置示例不符合固定契约：{config_example}")
+            if config_example.get("base_url") != "https://www.thinkai.tv/v1":
+                fail("config.example.json 未保留 ThinkAI 旧版地址")
+                errors += 1
+            if config_example.get("model") != "gpt-image-2":
+                fail("config.example.json 未保留 ThinkAI 旧版模型")
+                errors += 1
+            if config_example.get("default_provider") != "thinkai":
+                fail("config.example.json 默认渠道必须是 thinkai")
+                errors += 1
+            providers = config_example.get("providers")
+            if not isinstance(providers, dict):
+                fail("config.example.json 缺少 providers")
+                errors += 1
+            else:
+                for provider_id in ("volcengine", "openai", "google"):
+                    value = providers.get(provider_id)
+                    if not isinstance(value, dict):
+                        fail(f"config.example.json 缺少正式渠道：{provider_id}")
+                        errors += 1
+                    elif set(value) != {"api_key", "model_alias"}:
+                        fail(f"正式渠道示例不得要求 URL 或模型 ID：{provider_id}")
+                        errors += 1
+
+    if registry_path.is_file():
+        try:
+            registry = json.loads(registry_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as exc:
+            fail(f"图片渠道注册表不是有效 JSON：{exc}")
+            errors += 1
+        else:
+            expected_choices = [
+                "thinkai",
+                "volcengine",
+                "openai",
+                "google",
+                "custom",
+            ]
+            if registry.get("choices") != expected_choices:
+                fail("图片渠道菜单必须严格为五项且顺序固定")
+                errors += 1
+            providers = registry.get("providers")
+            if not isinstance(providers, dict) or list(providers) != expected_choices[:4]:
+                fail("正式图片渠道注册表集合无效")
+                errors += 1
+            if re.search(r'"api_key"\s*:\s*"[^"]+"', registry_path.read_text(encoding="utf-8")):
+                fail("图片渠道注册表不得包含 API Key")
                 errors += 1
 
     if configure_path.is_file():
         configure_script = configure_path.read_text(encoding="utf-8")
         for term in (
-            "config.json",
-            "0o600",
-            "api_key",
-            "gpt-image-2",
-            "NamedTemporaryFile",
-            "os.replace",
+            "save_formal_provider_config",
+            '"thinkai"',
             "--api-key-stdin",
             "getpass.getpass",
         ):
@@ -587,17 +653,70 @@ def validate_thinkai_connector() -> int:
             fail("configure_api_key.py 不得通过命令参数接收 API Key")
             errors += 1
 
+    if configure_provider_path.is_file():
+        configure_provider = configure_provider_path.read_text(encoding="utf-8")
+        for term in (
+            "thinkai",
+            "volcengine",
+            "openai",
+            "google",
+            "custom",
+            "providers",
+            "0o600",
+            "NamedTemporaryFile",
+            "os.replace",
+            "--api-key-stdin",
+            "getpass.getpass",
+        ):
+            if term not in configure_provider:
+                fail(f"configure_provider.py 缺少渠道配置契约：{term}")
+                errors += 1
+        if re.search(r'add_argument\(\s*["\']--api-key["\']', configure_provider):
+            fail("configure_provider.py 不得通过命令参数接收 API Key")
+            errors += 1
+        for term in ("config.setdefault(\"default_provider\", \"thinkai\")", '"status": "configured"'):
+            if term not in configure_provider:
+                fail(f"configure_provider.py 缺少默认兼容契约：{term}")
+                errors += 1
+
+    if approval_hash_path.is_file():
+        approval_hash_script = approval_hash_path.read_text(encoding="utf-8")
+        for term in (
+            "approval_digest",
+            "--provider",
+            "resolve_provider_size",
+            "resolve_provider_quality",
+            "不调用图片生成 API",
+        ):
+            if term not in approval_hash_script:
+                fail(f"approval_hash.py 缺少审核哈希契约：{term}")
+                errors += 1
+
+    if preflight_path.is_file():
+        preflight = preflight_path.read_text(encoding="utf-8")
+        for term in (
+            "verified-local",
+            '"network_request_sent": False',
+            '"api_key": "<configured>"',
+            "本地检查图片渠道配置",
+        ):
+            if term not in preflight:
+                fail(f"provider_preflight.py 缺少非付费预检契约：{term}")
+                errors += 1
+        for forbidden in ("requests.", "urllib.request", "subprocess"):
+            if forbidden in preflight:
+                fail(f"provider_preflight.py 不得发送网络请求：{forbidden}")
+                errors += 1
+
     if generate_path.is_file():
         generate_script = generate_path.read_text(encoding="utf-8")
         for term in (
             "--approved",
             "--approval-hash",
+            "--provider",
+            'default="thinkai"',
             "approval_digest",
             "compare_digest",
-            "/images/generations",
-            '"response_format": "url"',
-            "1920x1088",
-            "2560x1440",
             "request.json",
             "response.json",
             "requests.request",
@@ -606,9 +725,14 @@ def validate_thinkai_connector() -> int:
             "urllib.request",
             "IncompleteRead",
             '"curl", "-L"',
+            "inspect_image",
+            "extract_adapter_source",
+            "redact_snapshot",
+            "omitted_values",
+            "sanitize_error_detail",
         ):
             if term not in generate_script:
-                fail(f"generate_image.py 缺少 ThinkAI 执行契约：{term}")
+                fail(f"generate_image.py 缺少统一执行契约：{term}")
                 errors += 1
         for forbidden in ("MAX_REQUEST_ATTEMPTS", "RETRYABLE_HTTP_STATUS_CODES"):
             if forbidden in generate_script:
@@ -617,6 +741,22 @@ def validate_thinkai_connector() -> int:
         if 'add_argument("--output-dir"' in generate_script:
             fail("generate_image.py 不得向命令行开放任意输出目录")
             errors += 1
+
+    adapter_terms = {
+        "thinkai": ("1920x1088", "2560x1440", '"response_format": "url"'),
+        "volcengine": ('"watermark": False', "b64_json", "resolve_model"),
+        "openai": ("/images/generations", "b64_json", "SUPPORTED_QUALITIES"),
+        "google": ("/interactions", "x-goog-api-key", "model_output"),
+        "custom": ("openai-image-compatible", "generic-sync-json-image", "validate_endpoint"),
+    }
+    for provider_id, path in provider_paths.items():
+        if not path.is_file():
+            continue
+        script = path.read_text(encoding="utf-8")
+        for term in adapter_terms[provider_id]:
+            if term not in script:
+                fail(f"{path.name} 缺少适配器契约：{term}")
+                errors += 1
 
     if workflow_path.is_file():
         workflow = workflow_path.read_text(encoding="utf-8")
@@ -628,10 +768,14 @@ def validate_thinkai_connector() -> int:
             "--api-key-stdin",
             "生成 POST 只发送一次",
             "不会自动重试",
-            "ThinkAI 后台没有成功任务",
+            "后台没有成功任务",
             "Python URL 读取器",
             "系统 `curl`",
-            "实际计费以 ThinkAI 后台为准",
+            "实际计费以渠道后台为准",
+            "scripts/provider_preflight.py",
+            "scripts/approval_hash.py",
+            "Google Nano Banana",
+            "其他",
         ):
             if term not in workflow:
                 fail(f"generation_workflow.md 缺少审核契约：{term}")
@@ -779,7 +923,7 @@ def main() -> int:
     errors += validate_knowledge_entrypoints()
     errors += validate_structured_knowledge()
     errors += validate_category_subject_routing()
-    errors += validate_thinkai_connector()
+    errors += validate_image_connectors()
     errors += validate_public_package()
 
     if errors:

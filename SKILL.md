@@ -1,13 +1,13 @@
 ---
 name: image-prompt-generator
-description: Use when converting technology news, AI industry analysis, product reviews, business insights, tutorials, or educational content into cover or section illustration prompts, or when generating an approved prompt through the bundled ThinkAI connector.
+description: Use when converting technology news, AI industry analysis, product reviews, business insights, tutorials, or educational content into cover or section illustration prompts, or when generating an approved prompt through the bundled image provider connectors.
 ---
 
 # Image Prompt Generator
 
 ## 概述
 
-把文章转化为专业图片提示词，并可在用户审核通过后通过内置 ThinkAI 连接器生成图片。
+把文章转化为专业图片提示词，并可在用户审核通过后通过内置图片渠道连接器生成图片。
 默认任务止于 Prompt 审核，不自动调用图片模型，也不提供图片编辑能力。
 
 核心流程是：理解文章 → 提炼一个观点 → 选择视觉策略 → 设计现实场景 → 生成 Prompt。
@@ -21,7 +21,7 @@ description: Use when converting technology news, AI industry analysis, product 
 2. **正文配图模式**：根据大纲、标题、段落或章节生成解释当前内容的配图提示词。
 
 新闻、评测、教程、信息图、杂志风格等只是分类、意图或视觉策略，不是新增模式。
-不得扩展为批量出图、图片编辑、文章写作或品牌资产管理工具。ThinkAI 生图只是两种模式
+不得扩展为批量出图、图片编辑、文章写作或品牌资产管理工具。连接器生图只是两种模式
 在 Prompt 审核后的可选执行阶段，不是第三种视觉模式。
 
 ## 模式判断
@@ -44,7 +44,8 @@ description: Use when converting technology news, AI industry analysis, product 
 - [负面规则](rules/negative_rules.md)
 - [构图决策库](knowledge/composition.md)
 - [自检与重设计](rules/self_check.md)
-- [ThinkAI 审核与生图规则](rules/generation_workflow.md)
+- [图片渠道知识](knowledge/image_providers.md)
+- [审核与生图规则](rules/generation_workflow.md)
 
 完成文章理解卡后，按照 [知识路由规则](rules/knowledge_routing.md) 定点读取命中的分类、
 意图、情绪、视觉策略和其他知识条目。不要默认加载全部知识库。
@@ -114,18 +115,27 @@ description: Use when converting technology news, AI industry analysis, product 
    - 所有解释、分析结论和规则使用中文。
    - 最终 Prompt 语言由目标模型决定。
    - 严格使用对应模板，只展示通过质量门的最终方案，不展示失败草稿或隐藏推理。
-   - 在模板后询问：`Prompt 已展示，请审核。是否批准使用 ThinkAI 生成图片？`
+   - 在模板后询问：`Prompt 已展示，请审核。是否批准生成图片？未指定渠道时默认使用 ThinkAI。`
+   - 用户已选定渠道时，在问题中明确渠道、模型和尺寸。
    - 输出后停止。用户在看到本次最终 Prompt 前给出的“直接生成”不算审核通过。
-11. **可选 ThinkAI 执行**
+11. **可选生图执行**
    - 仅当用户在看到最终 Prompt 后明确回复“批准”“通过”“可以生成”等同意语句时执行。
    - 执行前读取 `rules/generation_workflow.md`，检查本 Skill 自己的 `config.json`。
    - 不得读取或复用其他 Skill 的配置、API Key 或脚本。
-   - 未配置 API Key 时，询问用户并运行 `scripts/configure_api_key.py` 保存。
-   - 为用户批准的精确 Prompt 计算 SHA-256；调用 `scripts/generate_image.py` 时必须同时传入
-     `--approved` 与匹配的 `--approval-hash`。
+   - 未指定渠道时使用 ThinkAI。用户需要选择时，依次提供 ThinkAI、火山引擎 Seedream、
+     OpenAI GPT Image、Google Nano Banana、其他五个选项。
+   - 正式渠道未配置时，只让用户选择渠道并通过隐藏输入提供 API Key；地址、推荐模型与
+     默认尺寸由 `data/image_providers.json` 管理。
+   - “其他”渠道先读取官方图片 API 文档；只有能映射到受控同步协议时才由 Agent 准备
+     配置参数，然后让用户通过隐藏输入提供 API Key。
+   - 配置后运行 `scripts/provider_preflight.py` 做纯本地验证；不得把 `verified-local`
+     描述成远端认证成功。
+   - 使用 `scripts/approval_hash.py` 为当前渠道、模型、尺寸、质量和精确 Prompt 计算审核哈希；
+     调用 `scripts/generate_image.py` 时必须同时传入 `--approved` 与匹配的
+     `--approval-hash`。
    - Prompt、比例、主体、风格或其他画面条件发生变化后，旧批准与旧哈希同时失效。
    - 付费生成 POST 只发送一次。若超时、断线或结果不确定，不得自动重试；先请用户检查
-     ThinkAI 后台，只有用户确认没有成功任务并明确要求重发后才能再次执行。
+     所选渠道后台，只有用户确认没有成功任务并明确要求重发后才能再次执行。
    - 返回本地图片路径、实际尺寸、请求快照和响应快照。
 
 ## 输出约束
@@ -136,10 +146,12 @@ description: Use when converting technology news, AI industry analysis, product 
 - 生活化主题默认自然暖色调；工业、分析、风险主题服从文章语义，不强制暖色。
 - 不用 Logo、机器人、代码雨、AI 人脸、HUD、粒子或赛博朋克替代观点。
 - Negative Prompt 是针对当前方案的约束清单；即使模型不原生支持，也不得虚构模型参数。
-- 用户审核前禁止调用 ThinkAI；含糊答复、沉默、预先授权或仅要求“继续”都不算批准。
+- 用户审核前禁止调用任何图片渠道；含糊答复、沉默、预先授权或仅要求“继续”都不算批准。
 - ThinkAI 当前固定使用 `gpt-image-2`，支持 `1k` 与 `2k`；实际计费以 ThinkAI 后台为准。
+- 火山引擎、OpenAI、Google 与其他渠道只在用户显式选择时使用。
+- Seedance 属于视频生成，不得作为本 Skill 的图片渠道。
 
-## ThinkAI 配置
+## 图片渠道配置
 
 首次使用时运行：
 
@@ -148,16 +160,19 @@ python3 -m pip install -r requirements.txt
 python3 scripts/configure_api_key.py
 ```
 
-第一条命令安装 ThinkAI 生图连接器使用的 `requests` 依赖；只生成 Prompt 时无需安装。
+第一条命令安装生图连接器使用的 `requests` 依赖；只生成 Prompt 时无需安装。
 配置脚本默认使用隐藏输入。自动化环境可把 Key 通过标准输入传给
 `python3 scripts/configure_api_key.py --api-key-stdin`，禁止把 Key 放入命令参数。
 
-配置只写入当前 Skill 根目录的 `config.json`，使用临时文件原子替换并设为 `0600`。
+ThinkAI 保持默认渠道。五种渠道的配置与执行方式见
+`knowledge/image_providers.md` 与 `rules/generation_workflow.md`。配置只写入当前 Skill
+根目录的 `config.json`，使用临时文件原子替换并设为 `0600`。
 图片与请求记录默认写入 `generated/<时间戳>/`。`config.json` 与 `generated/` 均不得提交
 或随安装包分发。
 
 ## 当前边界
 
 - 只支持封面模式和正文配图模式。
-- ThinkAI 只负责生成审核通过的图片，不参与文章理解和 Prompt 质量判断。
+- 图片渠道只负责生成审核通过的图片，不参与文章理解和 Prompt 质量判断。
 - 不支持图片编辑、批量生成、自动跳过审核或复用其他 Skill 的凭据。
+- “其他”只支持受控同步 JSON 图片协议，不支持任意代码、异步轮询或视频接口。

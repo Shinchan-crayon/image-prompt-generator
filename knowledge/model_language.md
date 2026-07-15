@@ -17,10 +17,17 @@
 | Seedream | 中文或中英混合 | 50–60 个汉字，优先中文真实摄影描述 |
 | Ideogram | 英文 | 35–45 个单词；需要画面文字时才写文字内容 |
 | ThinkAI `gpt-image-2` | 中文或中英混合 | 50–60 个汉字，按 GPT Image 的场景化真实摄影写法 |
+| 火山引擎方舟 / Seedream | 中文或中英混合 | 50–60 个汉字，按 Seedream 的中文场景化写法 |
+| OpenAI GPT Image | 中文或中英混合 | 50–60 个汉字，优先具体场景和自然语言 |
+| Google Nano Banana | 中文或中英混合 | 50–60 个汉字，优先清晰主体、动作、光线和构图 |
 
 若用户要求通过本 Skill 的 ThinkAI 连接器生图，目标模型固定按
 `ThinkAI gpt-image-2` 处理。若此前为 Midjourney、Flux 或 Ideogram 生成了英文 Prompt，
 进入 ThinkAI 审核前必须重新适配并再次展示，不得把未审核的新版本直接送去生成。
+
+若用户显式选择火山引擎，按 Seedream 处理；选择 OpenAI 时按 GPT Image 处理；选择
+Google 时按 Nano Banana 处理。实际渠道模型与当前 Prompt 目标模型不一致时，必须重新
+适配、展示和审核；配置渠道不能自动批准 Prompt。
 
 ## 未指定模型
 

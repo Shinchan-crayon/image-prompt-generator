@@ -3,52 +3,17 @@
 
 import argparse
 import getpass
-import json
-import os
 import sys
-import tempfile
 from pathlib import Path
 
+from configure_provider import save_formal_provider_config
 
 DEFAULT_BASE_URL = "https://www.thinkai.tv/v1"
 DEFAULT_MODEL = "gpt-image-2"
 
 
 def save_config(skill_root: Path, api_key: str) -> Path:
-    normalized_key = api_key.strip()
-    if not normalized_key:
-        raise ValueError("ThinkAI API Key 不能为空。")
-
-    config_path = skill_root / "config.json"
-    config = {
-        "base_url": DEFAULT_BASE_URL,
-        "model": DEFAULT_MODEL,
-        "api_key": normalized_key,
-    }
-
-    skill_root.mkdir(parents=True, exist_ok=True)
-    temp_path = None
-    try:
-        with tempfile.NamedTemporaryFile(
-            mode="w",
-            encoding="utf-8",
-            dir=skill_root,
-            prefix=".config.",
-            suffix=".tmp",
-            delete=False,
-        ) as temp_file:
-            temp_path = Path(temp_file.name)
-            os.chmod(temp_path, 0o600)
-            json.dump(config, temp_file, ensure_ascii=False, indent=2)
-            temp_file.write("\n")
-            temp_file.flush()
-            os.fsync(temp_file.fileno())
-        os.replace(temp_path, config_path)
-        os.chmod(config_path, 0o600)
-    finally:
-        if temp_path is not None and temp_path.exists():
-            temp_path.unlink()
-    return config_path
+    return save_formal_provider_config(skill_root, "thinkai", api_key, "recommended")
 
 
 def main() -> int:

@@ -1,0 +1,69 @@
+{
+  "version": 1,
+  "choices": [
+    "thinkai",
+    "volcengine",
+    "openai",
+    "google",
+    "custom"
+  ],
+  "providers": {
+    "thinkai": {
+      "name": "ThinkAI",
+      "adapter": "thinkai",
+      "base_url": "https://www.thinkai.tv/v1",
+      "recommended_model": "recommended",
+      "models": {
+        "recommended": "gpt-image-2"
+      },
+      "default_size": "1k",
+      "prompt_language": "zh-bilingual",
+      "status": "supported",
+      "verified_at": "2026-07-14"
+    },
+    "volcengine": {
+      "name": "火山引擎 Seedream",
+      "adapter": "volcengine",
+      "base_url": "https://ark.cn-beijing.volces.com/api/v3",
+      "recommended_model": "recommended",
+      "models": {
+        "recommended": "doubao-seedream-5-0-lite-260128"
+      },
+      "default_size": "2k",
+      "prompt_language": "zh-bilingual",
+      "status": "supported",
+      "verified_at": "2026-07-14"
+    },
+    "openai": {
+      "name": "OpenAI GPT Image",
+      "adapter": "openai_image",
+      "base_url": "https://api.openai.com/v1",
+      "recommended_model": "recommended",
+      "models": {
+        "recommended": "gpt-image-2"
+      },
+      "default_size": "1536x1024",
+      "prompt_language": "zh-bilingual",
+      "status": "supported",
+      "verified_at": "2026-07-14"
+    },
+    "google": {
+      "name": "Google Nano Banana",
+      "adapter": "google_image",
+      "base_url": "https://generativelanguage.googleapis.com/v1beta",
+      "recommended_model": "recommended",
+      "models": {
+        "recommended": "gemini-3.1-flash-image"
+      },
+      "default_size": "16:9@2k",
+      "prompt_language": "zh-bilingual",
+      "status": "supported",
+      "verified_at": "2026-07-14"
+    }
+  },
+  "custom": {
+    "id": "custom",
+    "name": "其他",
+    "status": "guided"
+  }
+}
