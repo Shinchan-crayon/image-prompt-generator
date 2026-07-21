@@ -9,7 +9,7 @@ from pathlib import Path
 from configure_provider import save_formal_provider_config
 
 DEFAULT_BASE_URL = "https://www.thinkai.tv/v1"
-DEFAULT_MODEL = "gpt-image-2"
+DEFAULT_MODEL = "gpt-image-2-4k"
 
 
 def save_config(skill_root: Path, api_key: str) -> Path:

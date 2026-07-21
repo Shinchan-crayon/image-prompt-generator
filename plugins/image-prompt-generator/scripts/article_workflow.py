@@ -2,7 +2,7 @@
 """管理整篇文章的多图规划、审核、批量生成与恢复。"""
 
 import argparse
-from concurrent.futures import Future, ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import hashlib
 import json
 import shutil
@@ -46,7 +46,7 @@ from workflow_state import (
 
 PLUGIN_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_MAX_WORKERS = 3
-MAX_MAX_WORKERS = 8
+MAX_MAX_WORKERS = 3
 
 
 def resolve_run(skill_root: Path, run_id: str) -> Path:
@@ -88,7 +88,7 @@ def batch_generate(
 ) -> dict:
     if not 1 <= max_workers <= MAX_MAX_WORKERS:
         raise WorkflowError(
-            f"并发数必须在 1 到 {MAX_MAX_WORKERS} 之间。"
+            f"每批图片数量与并发上限必须在 1 到 {MAX_MAX_WORKERS} 之间。"
         )
     run_dir = Path(run_dir)
     lock_descriptor = acquire_generation_lock(run_dir)
@@ -208,72 +208,61 @@ def _batch_generate_locked(
             allowed_output_root=run_dir / "artifacts",
         )
 
-    next_job_index = 0
-    futures: dict[Future, dict] = {}
     failures = []
-
-    with ThreadPoolExecutor(
-        max_workers=min(max_workers, len(pending_jobs)),
-        thread_name_prefix="image-prompt-generator",
-    ) as executor:
-        def submit_next() -> bool:
-            nonlocal next_job_index
-            if next_job_index >= len(pending_jobs):
-                return False
-            job = pending_jobs[next_job_index]
-            next_job_index += 1
-            mark_generation_result(
-                run_dir,
-                job["item"]["id"],
-                status="sending",
-            )
-            future = executor.submit(run_job, job)
-            futures[future] = job
-            return True
-
-        for _ in range(min(max_workers, len(pending_jobs))):
-            submit_next()
-
-        while futures:
-            future = next(as_completed(tuple(futures)))
-            job = futures.pop(future)
-            item_id = job["item"]["id"]
-            try:
-                result = future.result()
-            except GenerationUncertainError as exc:
+    for wave_start in range(0, len(pending_jobs), max_workers):
+        wave = pending_jobs[wave_start:wave_start + max_workers]
+        futures = {}
+        with ThreadPoolExecutor(
+            max_workers=len(wave),
+            thread_name_prefix="image-prompt-generator",
+        ) as executor:
+            for job in wave:
                 mark_generation_result(
                     run_dir,
-                    item_id,
-                    status="uncertain",
-                    error=str(exc),
+                    job["item"]["id"],
+                    status="sending",
                 )
-                failures.append(
-                    WorkflowError(
-                        f"{item_id} 生成结果不确定，批次已停止。"
+                futures[executor.submit(run_job, job)] = job
+
+            for future in as_completed(futures):
+                job = futures[future]
+                item_id = job["item"]["id"]
+                try:
+                    result = future.result()
+                except GenerationUncertainError as exc:
+                    mark_generation_result(
+                        run_dir,
+                        item_id,
+                        status="uncertain",
+                        error=str(exc),
                     )
-                )
-            except Exception as exc:
-                mark_generation_result(
-                    run_dir,
-                    item_id,
-                    status="failed",
-                    error=str(exc),
-                )
-                failures.append(
-                    WorkflowError(
-                        f"{item_id} 生成失败，批次已停止：{exc}"
+                    failures.append(
+                        WorkflowError(
+                            f"{item_id} 生成结果不确定，批次已停止。"
+                        )
                     )
-                )
-            else:
-                mark_generation_result(
-                    run_dir,
-                    item_id,
-                    status="generated",
-                    result=_relative_result(run_dir, result),
-                )
+                except Exception as exc:
+                    mark_generation_result(
+                        run_dir,
+                        item_id,
+                        status="failed",
+                        error=str(exc),
+                    )
+                    failures.append(
+                        WorkflowError(
+                            f"{item_id} 生成失败，批次已停止：{exc}"
+                        )
+                    )
+                else:
+                    mark_generation_result(
+                        run_dir,
+                        item_id,
+                        status="generated",
+                        result=_relative_result(run_dir, result),
+                    )
 
-            if not failures:
-                submit_next()
+        if failures:
+            break
 
     if failures:
         raise failures[0]
@@ -514,7 +503,7 @@ def build_parser() -> argparse.ArgumentParser:
                 type=int,
                 default=DEFAULT_MAX_WORKERS,
                 help=(
-                    "批次内部最大并发请求数，"
+                    "每批图片数量与并发上限，"
                     f"默认 {DEFAULT_MAX_WORKERS}，范围 1-{MAX_MAX_WORKERS}"
                 ),
             )

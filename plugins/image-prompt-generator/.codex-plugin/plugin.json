@@ -18,7 +18,7 @@
   "interface": {
     "displayName": "Image Prompt Generator",
     "shortDescription": "六个协作 Skill 完成文章视觉规划、Prompt 质检与可选生图",
-    "longDescription": "面向各类文章的视觉工作流，由一个总控 Skill 编排五个专项 Skill。先理解文章并规划图片，再分别设计封面和正文配图 Prompt，通过独立质量审核与逐图人工批准后，才允许使用多渠道连接器受控生图；支持整篇文章规划、断点恢复、默认三并发和统一交付。",
+    "longDescription": "面向各类文章的视觉工作流，由一个总控 Skill 编排五个专项 Skill。先理解文章并规划图片，再分别设计封面和正文配图 Prompt，通过独立质量审核与逐图人工批准后，才允许使用多渠道连接器受控生图；支持整篇文章规划、断点恢复、每批最多三张且整批成功后继续和统一交付。",
     "developerName": "Shinchan-crayon",
     "category": "Creativity",
     "capabilities": [

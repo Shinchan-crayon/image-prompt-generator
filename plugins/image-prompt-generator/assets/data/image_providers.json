@@ -15,7 +15,7 @@
       "base_url": "https://www.thinkai.tv/v1",
       "recommended_model": "recommended",
       "models": {
-        "recommended": "gpt-image-2"
+        "recommended": "gpt-image-2-4k"
       },
       "default_size": "1k",
       "prompt_language": "zh-bilingual",

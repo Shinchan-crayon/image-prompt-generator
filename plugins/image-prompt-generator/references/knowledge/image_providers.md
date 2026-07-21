@@ -44,7 +44,7 @@ python3 scripts/provider_preflight.py --provider <provider>
 
 | ID | 用户名称 | Prompt 语言 | 默认行为 |
 |---|---|---|---|
-| `thinkai-image2` | ThinkAI Image 2 | 中文或中英混合 | 默认渠道，保留旧平铺配置、旧 ID 与旧审核哈希 |
+| `thinkai-image2` | ThinkAI Image 2 | 中文或中英混合 | 默认渠道，使用 `gpt-image-2-4k`，保留旧平铺配置、旧 ID 与旧审核哈希 |
 | `thinkai-nano` | ThinkAI Nano | 中文或中英混合 | `nano-banana-2`，比例与 1K/2K/4K 尺寸绑定审核 |
 | `volcengine` | 火山引擎 Seedream | 中文或中英混合 | 使用注册表推荐 Seedream 模型 |
 | `openai` | OpenAI GPT Image | 中文或中英混合 | 使用 OpenAI Image API |

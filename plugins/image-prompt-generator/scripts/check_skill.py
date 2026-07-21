@@ -515,9 +515,10 @@ def validate_article_workflow() -> int:
                 "全量批准门禁",
                 "受控",
                 "--max-workers",
-                "1` 到 `8",
-                "不再提交尚未开始的项目",
-                "已经发送的并发请求无法取消",
+                "1` 到 `3",
+                "当前批次全部成功后",
+                "不得在当前批次空出并发槽位时滚动补入下一批",
+                "当前批次已经发送的并发请求无法取消",
                 "跳过所有已经成功的图片",
                 "结果不确定",
                 "不得自动",
@@ -537,6 +538,7 @@ def validate_article_workflow() -> int:
                 "ThreadPoolExecutor",
                 "as_completed",
                 "DEFAULT_MAX_WORKERS = 3",
+                "MAX_MAX_WORKERS = 3",
                 "--max-workers",
                 "acquire_generation_lock",
                 "resolve_item",
@@ -756,8 +758,8 @@ def validate_image_connectors() -> int:
             if config_example.get("base_url") != "https://www.thinkai.tv/v1":
                 fail("config.example.json 未保留 ThinkAI 旧版地址")
                 errors += 1
-            if config_example.get("model") != "gpt-image-2":
-                fail("config.example.json 未保留 ThinkAI 旧版模型")
+            if config_example.get("model") != "gpt-image-2-4k":
+                fail("config.example.json 未使用 ThinkAI Image 2 4K 模型")
                 errors += 1
             if config_example.get("default_provider") != "thinkai-image2":
                 fail("config.example.json 默认渠道必须是 thinkai-image2")
